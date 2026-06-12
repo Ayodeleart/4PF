@@ -209,14 +209,14 @@ select.inp{cursor:pointer;appearance:none;background-image:url("data:image/svg+x
 .mc.on{background:var(--s3);border-color:var(--txt3);color:var(--txt)}
 
 /* ── SIGN IN PAGE (Manus style) ── */
-#screen-signin{position:relative;overflow:hidden;background:#0f0f0f;min-height:100dvh;flex-direction:column;align-items:center;justify-content:flex-end}
+#screen-signin{position:relative;overflow:hidden;background:#0f0f0f;height:100dvh;max-height:100dvh;flex-direction:column;align-items:center;justify-content:space-between}
 .signin-dotgrid{position:absolute;inset:0;background-image:radial-gradient(rgba(255,255,255,.06) 1px,transparent 1px);background-size:22px 22px;z-index:1;pointer-events:none}
 .signin-glow{position:absolute;inset:0;z-index:1;pointer-events:none;background:radial-gradient(circle at 18% 22%,rgba(60,80,200,.18) 0%,transparent 40%),radial-gradient(circle at 78% 60%,rgba(200,60,60,.14) 0%,transparent 40%),radial-gradient(circle at 50% 85%,rgba(60,160,60,.1) 0%,transparent 35%)}
-.signin-vid{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;z-index:0;opacity:.18;pointer-events:none}
-.signin-brand{position:absolute;top:calc(env(safe-area-inset-top) + 80px);left:50%;transform:translateX(-50%);text-align:center;z-index:10;width:90%}
+.signin-vid{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;z-index:0;opacity:.45;pointer-events:none}
+.signin-brand{text-align:center;z-index:10;width:90%;padding-top:calc(env(safe-area-inset-top) + 70px);flex-shrink:0}
 .signin-brand img{height:60px;width:auto;max-width:320px}
 .signin-brand h1{font-family:'DM Serif Display',serif;font-size:26px;font-weight:400;color:#fff;margin-top:14px;line-height:1.2}
-.signin-bottom{position:relative;z-index:10;width:100%;max-width:420px;padding:0 24px calc(env(safe-area-inset-bottom) + 28px)}
+.signin-bottom{position:relative;z-index:10;width:100%;max-width:420px;padding:0 24px calc(env(safe-area-inset-bottom) + 16px);flex-shrink:0}
 .sbtn{display:flex;align-items:center;gap:14px;width:100%;background:rgba(255,255,255,.09);backdrop-filter:blur(12px);border:1px solid rgba(255,255,255,.12);border-radius:14px;padding:15px 20px;color:#fff;font-size:16px;font-weight:500;cursor:pointer;transition:background .15s;margin-bottom:12px;text-align:left}
 .sbtn:active{background:rgba(255,255,255,.15)}
 .sbtn-icon{width:28px;height:28px;display:flex;align-items:center;justify-content:center;flex-shrink:0}
@@ -255,13 +255,14 @@ select.inp{cursor:pointer;appearance:none;background-image:url("data:image/svg+x
   <video id="signin-bg-vid" class="signin-vid" autoplay muted loop playsinline>
     <source src="" type="video/mp4">
   </video>
-  <img id="signin-bg-img" style="position:absolute;inset:0;width:100%;height:100%;object-fit:cover;z-index:0;opacity:.25;display:none;pointer-events:none" alt="">
+  <img id="signin-bg-img" style="position:absolute;inset:0;width:100%;height:100%;object-fit:cover;z-index:0;opacity:.55;display:none;pointer-events:none" alt="">
   <div class="signin-dotgrid"></div>
   <div class="signin-glow"></div>
   <div class="signin-brand">
     <img src="logo-main.png" alt="4PF" onerror="this.style.display='none'">
     <h1>Welcome to<br>4PF</h1>
   </div>
+  <div style="flex:1"></div>
   <div class="signin-bottom">
     <button class="sbtn" onclick="signInFacebook()">
       <div class="sbtn-icon"><svg width="24" height="24" viewBox="0 0 24 24" fill="#1877F2"><path d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z"/></svg></div>
@@ -1027,7 +1028,6 @@ async function loadKeysFromDB() {
     const { data } = await sb.from('user_api_keys').select('*').eq('user_id', currentUser.id).single();
     if (data) _keys = { gem: data.gem_key||'', groq: data.groq_key||'', fal: data.fal_key||'', car: data.car_key||'', elabs: data.elabs_key||'', heygen: data.heygen_key||'' };
   } catch(e) { console.warn('loadKeysFromDB:', e); }
-};
 }
 
 // ── INIT ──
@@ -1071,7 +1071,7 @@ document.addEventListener('DOMContentLoaded', async () => {
 async function loadLoginBackground() {
   try {
     const { data, error } = await sb.from('login_background')
-      .select('*').eq('active', true)
+      .select('*').eq('active', true).eq('app_name','4pf')
       .order('created_at', { ascending: false }).limit(1);
     if (error || !data?.length) return;
     const bg = data[0];
