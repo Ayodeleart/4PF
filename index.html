@@ -51,14 +51,6 @@ button,input,select,textarea{font-family:inherit}
 }
 #bnav.hide{opacity:0;pointer-events:none;display:none!important}
 #bnav.scrolled-out{transform:translateX(-50%) translateY(120%);opacity:0;pointer-events:none;visibility:hidden}
-.bnav-shine{
-  position:absolute;inset:-1.5px;border-radius:52px;padding:1.5px;pointer-events:none;
-  background:conic-gradient(from 0deg,transparent 0%,rgba(160,160,160,.15) 20%,rgba(192,192,192,.55) 35%,rgba(255,255,255,.9) 50%,rgba(192,192,192,.55) 65%,rgba(160,160,160,.15) 80%,transparent 100%);
-  -webkit-mask:linear-gradient(#fff 0 0) content-box,linear-gradient(#fff 0 0);
-  -webkit-mask-composite:xor;mask-composite:exclude;
-  animation:bnav-shine 2.5s linear infinite;
-}
-@keyframes bnav-shine{to{transform:rotate(360deg)}}
 .nb{width:52px;height:44px;display:flex;align-items:center;justify-content:center;border-radius:32px;border:none;background:transparent;color:rgba(255,255,255,.3);cursor:pointer;transition:all .22s}
 .nb.on{background:rgba(255,255,255,.11);color:rgba(255,255,255,.95)}
 .light .nb{color:rgba(0,0,0,.3)}
@@ -217,14 +209,14 @@ select.inp{cursor:pointer;appearance:none;background-image:url("data:image/svg+x
 .mc.on{background:var(--s3);border-color:var(--txt3);color:var(--txt)}
 
 /* ── SIGN IN PAGE (Manus style) ── */
-#screen-signin{position:relative;overflow:hidden;background:#0f0f0f;height:100svh;flex-direction:column;align-items:center;justify-content:space-between}
+#screen-signin{position:relative;overflow:hidden;background:#0f0f0f;height:100dvh;max-height:100dvh;flex-direction:column;align-items:center;justify-content:space-between}
 .signin-dotgrid{position:absolute;inset:0;background-image:radial-gradient(rgba(255,255,255,.06) 1px,transparent 1px);background-size:22px 22px;z-index:1;pointer-events:none}
 .signin-glow{position:absolute;inset:0;z-index:1;pointer-events:none;background:radial-gradient(circle at 18% 22%,rgba(60,80,200,.18) 0%,transparent 40%),radial-gradient(circle at 78% 60%,rgba(200,60,60,.14) 0%,transparent 40%),radial-gradient(circle at 50% 85%,rgba(60,160,60,.1) 0%,transparent 35%)}
 .signin-vid{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;z-index:0;opacity:.45;pointer-events:none}
 .signin-brand{text-align:center;z-index:10;width:90%;padding-top:calc(env(safe-area-inset-top) + 70px);flex-shrink:0}
 .signin-brand img{height:60px;width:auto;max-width:320px}
 .signin-brand h1{font-family:'DM Serif Display',serif;font-size:26px;font-weight:400;color:#fff;margin-top:14px;line-height:1.2}
-.signin-bottom{position:relative;z-index:10;width:100%;max-width:420px;padding:0 24px 20px;flex-shrink:0}
+.signin-bottom{position:relative;z-index:10;width:100%;max-width:420px;padding:0 24px calc(env(safe-area-inset-bottom) + 16px);flex-shrink:0}
 .sbtn{display:flex;align-items:center;gap:14px;width:100%;background:rgba(255,255,255,.09);backdrop-filter:blur(12px);border:1px solid rgba(255,255,255,.12);border-radius:14px;padding:15px 20px;color:#fff;font-size:16px;font-weight:500;cursor:pointer;transition:background .15s;margin-bottom:12px;text-align:left}
 .sbtn:active{background:rgba(255,255,255,.15)}
 .sbtn-icon{width:28px;height:28px;display:flex;align-items:center;justify-content:center;flex-shrink:0}
@@ -319,8 +311,10 @@ select.inp{cursor:pointer;appearance:none;background-image:url("data:image/svg+x
 <!-- ═══════════════ HOME ═══════════════ -->
 <div id="screen-home" class="screen">
   <div class="hdr">
-    <img src="logo-main.png" alt="4PF" style="height:28px;width:auto;object-fit:contain;filter:drop-shadow(0 0 6px rgba(200,40,40,.35))" onerror="this.style.display='none'">
-    <div style="flex:1"></div>
+    <div style="flex:1">
+      <div style="font-size:11px;color:var(--txt2);font-weight:500;letter-spacing:.02em">What would you like to</div>
+      <div style="font-family:'DM Serif Display',serif;font-size:22px;color:var(--txt);line-height:1.15">create?</div>
+    </div>
     <button class="ib" onclick="toggleTheme()">
       <svg id="theme-ic" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M6.34 17.66l-1.41 1.41M19.07 4.93l-1.41 1.41"/></svg>
     </button>
@@ -442,7 +436,41 @@ select.inp{cursor:pointer;appearance:none;background-image:url("data:image/svg+x
         <input id="tts-voice-id" class="inp" placeholder="e.g. a0e99841-438c-4a64-b679-ae501e7d6091" autocomplete="off" oninput="this.value=this.value.trim()">
         <div id="tts-voice-section" style="margin-top:12px">
           <label class="lbl">Preset Voices</label>
-          <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px" id="voice-presets"></div>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px" id="voice-presets">
+            <button class="vc" data-id="a0e99841-438c-4a64-b679-ae501e7d6091" onclick="pickPresetVoice(this)">
+              <div><div class="vc-n">Barbra</div><div class="vc-d">American · Warm Female</div></div>
+            </button>
+            <button class="vc" data-id="79a125e8-cd45-4c13-8a67-188112f4dd22" onclick="pickPresetVoice(this)">
+              <div><div class="vc-n">British Lady</div><div class="vc-d">British · Refined Female</div></div>
+            </button>
+            <button class="vc" data-id="41534e16-2966-4c6b-9670-111411def906" onclick="pickPresetVoice(this)">
+              <div><div class="vc-n">Calm Female</div><div class="vc-d">American · Soothing</div></div>
+            </button>
+            <button class="vc" data-id="156fb8d2-335b-4950-9cb3-a2d33befec77" onclick="pickPresetVoice(this)">
+              <div><div class="vc-n">Helpful Woman</div><div class="vc-d">American · Friendly</div></div>
+            </button>
+            <button class="vc" data-id="5c42302c-194b-4d0c-ba1a-8cb485c84ab9" onclick="pickPresetVoice(this)">
+              <div><div class="vc-n">Newsman</div><div class="vc-d">American · Authoritative Male</div></div>
+            </button>
+            <button class="vc" data-id="729651dc-c6b3-4b55-a43c-8f3ae64f5a2d" onclick="pickPresetVoice(this)">
+              <div><div class="vc-n">Pleasant Man</div><div class="vc-d">American · Conversational Male</div></div>
+            </button>
+            <button class="vc" data-id="21b81c14-f85b-436d-aff5-43072529f9f0" onclick="pickPresetVoice(this)">
+              <div><div class="vc-n">Laidback Woman</div><div class="vc-d">American · Casual Female</div></div>
+            </button>
+            <button class="vc" data-id="e13cae5c-ec59-4f71-b0a6-266df3c9bb8e" onclick="pickPresetVoice(this)">
+              <div><div class="vc-n">Madame Mischief</div><div class="vc-d">Expressive · Playful Female</div></div>
+            </button>
+            <button class="vc" data-id="996a8b96-4804-46f0-8e05-3fd4ef1a87cd" onclick="pickPresetVoice(this)">
+              <div><div class="vc-n">Storyteller Lady</div><div class="vc-d">American · Narrative Female</div></div>
+            </button>
+            <button class="vc" data-id="87748186-23bb-4158-a1eb-332911b0b708" onclick="pickPresetVoice(this)">
+              <div><div class="vc-n">Jazz Man</div><div class="vc-d">American · Smooth Male</div></div>
+            </button>
+            <button class="vc" data-id="15a9cd88-84b0-4a8b-95f2-5d583b54c72e" onclick="pickPresetVoice(this)">
+              <div><div class="vc-n">Southern Belle</div><div class="vc-d">American South · Warm Female</div></div>
+            </button>
+          </div>
           <!-- Custom voices saved by user -->
           <div id="custom-voice-list" style="display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-top:6px"></div>
           <!-- Add custom voice -->
@@ -924,7 +952,7 @@ select.inp{cursor:pointer;appearance:none;background-image:url("data:image/svg+x
 </div>
 
 <!-- ═══════════════ BOTTOM NAV ═══════════════ -->
-<nav id="bnav" class="hide"><div class="bnav-shine"></div>
+<nav id="bnav" class="hide">
   <button class="nb on" id="nb-home" onclick="go('home')">
     <svg width="22" height="22" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg" overflow="visible">
       <g fill-rule="evenodd">
@@ -1107,7 +1135,6 @@ async function initApp() {
   if (k.car)    { const e=document.getElementById('key-car');    if(e) e.value=masked(k.car); }
   if (k.elabs)  { const e=document.getElementById('key-elabs');  if(e) e.value=masked(k.elabs); }
   if (k.heygen) { const e=document.getElementById('key-heygen'); if(e) e.value=masked(k.heygen); }
-  loadHiddenPresets().then(renderVoicePresets);
   go('home');
 }
 
@@ -1505,7 +1532,7 @@ async function sendChat() {
   }
 
   if (!activeSession) await newChat();
-  inp.value = ''; inp.style.height = 'auto'; requestAnimationFrame(() => { inp.focus(); });
+  inp.value = ''; inp.style.height = 'auto';
 
   const userText = text || '[image attached]';
   const imgData = mediaBase64; const imgType = mediaType;
@@ -2048,50 +2075,6 @@ function showSaveToast() {
 }
 
 // ── CUSTOM VOICES ──
-// ── DEFAULT VOICE PRESETS (4, user-removable, saved to Supabase) ──
-const DEFAULT_VOICE_PRESETS = [
-  { id: 'a0e99841-438c-4a64-b679-ae501e7d6091', name: 'Barbra',       desc: 'American · Warm Female' },
-  { id: '79a125e8-cd45-4c13-8a67-188112f4dd22', name: 'British Lady', desc: 'British · Refined Female' },
-  { id: '5c42302c-194b-4d0c-ba1a-8cb485c84ab9', name: 'Newsman',      desc: 'American · Authoritative Male' },
-  { id: '87748186-23bb-4158-a1eb-332911b0b708', name: 'Jazz Man',      desc: 'American · Smooth Male' },
-];
-let _hiddenPresets = [];
-
-async function loadHiddenPresets() {
-  if (!currentUser) return;
-  try {
-    const { data } = await sb.from('user_api_keys').select('hidden_voices').eq('user_id', currentUser.id).single();
-    _hiddenPresets = data?.hidden_voices || [];
-  } catch(e) { _hiddenPresets = []; }
-}
-
-async function saveHiddenPresets() {
-  if (!currentUser) return;
-  await sb.from('user_api_keys').upsert({ user_id: currentUser.id, hidden_voices: _hiddenPresets, updated_at: new Date().toISOString() }, { onConflict: 'user_id' });
-}
-
-async function removeVoicePreset(id, e) {
-  e.stopPropagation();
-  _hiddenPresets = [..._hiddenPresets, id];
-  await saveHiddenPresets();
-  renderVoicePresets();
-}
-
-function renderVoicePresets() {
-  const container = document.getElementById('voice-presets');
-  if (!container) return;
-  const visible = DEFAULT_VOICE_PRESETS.filter(v => !_hiddenPresets.includes(v.id));
-  if (!visible.length) {
-    container.innerHTML = '<div style="font-size:12px;color:var(--txt3);grid-column:1/-1;padding:8px 0">All presets removed. Add your own voice below.</div>';
-    return;
-  }
-  container.innerHTML = visible.map(v => `
-    <button class="vc" data-id="${v.id}" onclick="pickPresetVoice(this)" style="position:relative">
-      <div style="flex:1"><div class="vc-n">${v.name}</div><div class="vc-d">${v.desc}</div></div>
-      <div onclick="removeVoicePreset('${v.id}',event)" style="position:absolute;top:6px;right:6px;width:18px;height:18px;border-radius:50%;background:rgba(255,255,255,.1);display:flex;align-items:center;justify-content:center;font-size:11px;color:var(--txt2);line-height:1">&#x2715;</div>
-    </button>`).join('');
-}
-
 function loadCustomVoices() {
   try { return JSON.parse(sessionStorage.getItem('customVoices') || '[]'); } catch { return []; }
 }
