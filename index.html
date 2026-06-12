@@ -6,11 +6,11 @@
 <meta name="theme-color" content="#080808">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-<meta name="apple-mobile-web-app-title" content="Subtle & Soul">
+<meta name="apple-mobile-web-app-title" content="4PF">
 <link rel="manifest" href="manifest.json">
 <link rel="apple-touch-icon" href="logo-pwa.png">
 <link rel="icon" href="logo-main.png">
-<title>Subtle &amp; Soul</title>
+<title>4PF</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=DM+Sans:opsz,wght@9..40,300;9..40,400;9..40,500;9..40,600;9..40,700&family=DM+Serif+Display:ital@0;1&display=swap" rel="stylesheet">
 <style>
@@ -49,8 +49,8 @@ button,input,select,textarea{font-family:inherit}
   border:1px solid var(--nbb);box-shadow:0 10px 40px rgba(0,0,0,.5),inset 0 1.5px 0 rgba(255,255,255,.06);
   transition:opacity .25s, transform .3s;
 }
-#bnav.hide{opacity:0;pointer-events:none}
-#bnav.scrolled-out{transform:translateX(-50%) translateY(120%);opacity:0;pointer-events:none}
+#bnav.hide{opacity:0;pointer-events:none;display:none!important}
+#bnav.scrolled-out{transform:translateX(-50%) translateY(120%);opacity:0;pointer-events:none;visibility:hidden}
 .nb{width:52px;height:44px;display:flex;align-items:center;justify-content:center;border-radius:32px;border:none;background:transparent;color:rgba(255,255,255,.3);cursor:pointer;transition:all .22s}
 .nb.on{background:rgba(255,255,255,.11);color:rgba(255,255,255,.95)}
 .light .nb{color:rgba(0,0,0,.3)}
@@ -210,13 +210,13 @@ select.inp{cursor:pointer;appearance:none;background-image:url("data:image/svg+x
 
 /* ── SIGN IN PAGE (Manus style) ── */
 #screen-signin{position:relative;overflow:hidden;background:#0f0f0f;min-height:100dvh;flex-direction:column;align-items:center;justify-content:flex-end}
-.signin-dotgrid{position:absolute;inset:0;background-image:radial-gradient(rgba(255,255,255,.06) 1px,transparent 1px);background-size:22px 22px;z-index:1}
-.signin-glow{position:absolute;inset:0;z-index:1;background:radial-gradient(circle at 18% 22%,rgba(60,80,200,.18) 0%,transparent 40%),radial-gradient(circle at 78% 60%,rgba(200,60,60,.14) 0%,transparent 40%),radial-gradient(circle at 50% 85%,rgba(60,160,60,.1) 0%,transparent 35%)}
-.signin-vid{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;z-index:0;opacity:.18}
-.signin-brand{position:absolute;top:calc(env(safe-area-inset-top) + 80px);left:50%;transform:translateX(-50%);text-align:center;z-index:2;width:90%}
+.signin-dotgrid{position:absolute;inset:0;background-image:radial-gradient(rgba(255,255,255,.06) 1px,transparent 1px);background-size:22px 22px;z-index:1;pointer-events:none}
+.signin-glow{position:absolute;inset:0;z-index:1;pointer-events:none;background:radial-gradient(circle at 18% 22%,rgba(60,80,200,.18) 0%,transparent 40%),radial-gradient(circle at 78% 60%,rgba(200,60,60,.14) 0%,transparent 40%),radial-gradient(circle at 50% 85%,rgba(60,160,60,.1) 0%,transparent 35%)}
+.signin-vid{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;z-index:0;opacity:.18;pointer-events:none}
+.signin-brand{position:absolute;top:calc(env(safe-area-inset-top) + 80px);left:50%;transform:translateX(-50%);text-align:center;z-index:10;width:90%}
 .signin-brand img{height:60px;width:auto;max-width:320px}
 .signin-brand h1{font-family:'DM Serif Display',serif;font-size:26px;font-weight:400;color:#fff;margin-top:14px;line-height:1.2}
-.signin-bottom{position:relative;z-index:2;width:100%;max-width:420px;padding:0 24px 0}
+.signin-bottom{position:relative;z-index:10;width:100%;max-width:420px;padding:0 24px calc(env(safe-area-inset-bottom) + 28px)}
 .sbtn{display:flex;align-items:center;gap:14px;width:100%;background:rgba(255,255,255,.09);backdrop-filter:blur(12px);border:1px solid rgba(255,255,255,.12);border-radius:14px;padding:15px 20px;color:#fff;font-size:16px;font-weight:500;cursor:pointer;transition:background .15s;margin-bottom:12px;text-align:left}
 .sbtn:active{background:rgba(255,255,255,.15)}
 .sbtn-icon{width:28px;height:28px;display:flex;align-items:center;justify-content:center;flex-shrink:0}
@@ -255,12 +255,12 @@ select.inp{cursor:pointer;appearance:none;background-image:url("data:image/svg+x
   <video id="signin-bg-vid" class="signin-vid" autoplay muted loop playsinline>
     <source src="" type="video/mp4">
   </video>
-  <img id="signin-bg-img" style="position:absolute;inset:0;width:100%;height:100%;object-fit:cover;z-index:0;opacity:.25;display:none" alt="">
+  <img id="signin-bg-img" style="position:absolute;inset:0;width:100%;height:100%;object-fit:cover;z-index:0;opacity:.25;display:none;pointer-events:none" alt="">
   <div class="signin-dotgrid"></div>
   <div class="signin-glow"></div>
   <div class="signin-brand">
-    <img src="logo-main.png" alt="Subtle & Soul" onerror="this.style.display='none'">
-    <h1>Welcome to<br>Subtle &amp; Soul</h1>
+    <img src="logo-main.png" alt="4PF" onerror="this.style.display='none'">
+    <h1>Welcome to<br>4PF</h1>
   </div>
   <div class="signin-bottom">
     <button class="sbtn" onclick="signInFacebook()">
@@ -951,7 +951,7 @@ select.inp{cursor:pointer;appearance:none;background-image:url("data:image/svg+x
 </div>
 
 <!-- ═══════════════ BOTTOM NAV ═══════════════ -->
-<nav id="bnav">
+<nav id="bnav" class="hide">
   <button class="nb on" id="nb-home" onclick="go('home')">
     <svg width="22" height="22" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg" overflow="visible">
       <g fill-rule="evenodd">
@@ -1205,7 +1205,7 @@ function startTemplate(i) {
     lastY = y;
   }
 })();
-const INNER = ['signin','chat','tts','pimg','pvid','i2v','motion','refimg','keys','heromanage','library'];
+const INNER = ['signin','chat','tts','pimg','pvid','i2v','motion','talkphoto','refimg','keys','heromanage','library'];
 function go(screen, params = {}) {
   document.querySelectorAll('.screen').forEach(s => s.classList.remove('on'));
   const el = document.getElementById('screen-' + screen);
