@@ -1903,6 +1903,24 @@ async function loadTpLibAudios() {
   const list = document.getElementById('tp-lib-list');
   const empty = document.getElementById('tp-lib-empty');
   if (!data?.length) { _tpLibItems = []; list.innerHTML = ''; empty.style.display = 'block'; return; }
+  // Migrate any legacy data: URLs to Supabase storage in the background
+  for (const item of data) {
+    if (item.url && item.url.startsWith('data:')) {
+      try {
+        const res = await fetch(item.url);
+        const blob = await res.blob();
+        const path = currentUser.id + '/tts-migrated-' + item.id + '.mp3';
+        const { error: upErr } = await sb.storage.from('octopusfur-media').upload(path, blob, { contentType: 'audio/mpeg', upsert: true });
+        if (!upErr) {
+          const { data: pub } = sb.storage.from('octopusfur-media').getPublicUrl(path);
+          if (pub?.publicUrl) {
+            await sb.from('library_items').update({ url: pub.publicUrl }).eq('id', item.id);
+            item.url = pub.publicUrl;
+          }
+        }
+      } catch(e) { /* migration failed silently, will upload at use-time */ }
+    }
+  }
   _tpLibItems = data;
   empty.style.display = 'none';
   list.innerHTML = data.map((item, i) => `
@@ -2001,7 +2019,26 @@ Continue?`)) {
       voicePayload = { type: 'audio', audio_asset_id: audioAssetId };
     } else if (tpMode === 'library') {
       if (!tpLibAudioUrl) throw new Error('Select an audio clip from your library first');
-      voicePayload = { type: 'audio', audio_url: tpLibAudioUrl };
+      let libAudioUrl = tpLibAudioUrl;
+      // Legacy items may be saved as data: URLs — upload to HeyGen asset to get a real URL
+      if (libAudioUrl.startsWith('data:')) {
+        btn.innerHTML = '<div class="spin"></div> Preparing audio...';
+        const res = await fetch(libAudioUrl);
+        const blob = await res.blob();
+        const buf = await blob.arrayBuffer();
+        const ar = await fetch('https://upload.heygen.com/v1/asset', {
+          method: 'POST',
+          headers: { 'X-Api-Key': keys.heygen, 'Content-Type': blob.type || 'audio/mpeg' },
+          body: buf
+        });
+        if (!ar.ok) { const t = await ar.text(); throw new Error('Audio upload failed: ' + t); }
+        const ad = await ar.json();
+        const audioAssetId = ad.data?.id || ad.data?.asset_id;
+        if (!audioAssetId) throw new Error('No audio asset ID: ' + JSON.stringify(ad));
+        voicePayload = { type: 'audio', audio_asset_id: audioAssetId };
+      } else {
+        voicePayload = { type: 'audio', audio_url: libAudioUrl };
+      }
     } else {
       const script = document.getElementById('tp-script').value.trim();
       if (!script) throw new Error('Enter a script first');
