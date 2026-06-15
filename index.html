@@ -2081,7 +2081,7 @@ Continue?`)) {
       method: 'POST',
       headers: { 'X-Api-Key': keys.heygen, 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        video_inputs: [{ character: { type: 'talking_photo', talking_photo_id: talkingPhotoId, scale: 1.0, talking_photo_style: 'square', talking_style: tpStyle }, voice: voicePayload, background: { type: 'color', value: '#000000' } }],
+        video_inputs: [{ character: { type: 'talking_photo', talking_photo_id: talkingPhotoId, talking_style: tpStyle }, voice: voicePayload, background: { type: 'color', value: '#000000' } }],
         dimension: dim
       })
     });
@@ -2121,6 +2121,18 @@ document.addEventListener('DOMContentLoaded', () => {
   document.getElementById('tp-voice-id')?.addEventListener('change', function() {
     document.getElementById('tp-voice-custom').style.display = this.value === 'custom' ? 'block' : 'none';
   });
+
+  // ── PREVENT iOS ZOOM (double-tap & pinch) ──
+  document.addEventListener('gesturestart',  e => e.preventDefault(), { passive: false });
+  document.addEventListener('gesturechange', e => e.preventDefault(), { passive: false });
+  document.addEventListener('gestureend',    e => e.preventDefault(), { passive: false });
+  document.addEventListener('touchstart', e => { if (e.touches.length > 1) e.preventDefault(); }, { passive: false });
+  let _lastTap = 0;
+  document.addEventListener('touchend', e => {
+    const now = Date.now();
+    if (now - _lastTap < 300) e.preventDefault();
+    _lastTap = now;
+  }, { passive: false });
 });
 
 // ── CHANGE PASSWORD ──
