@@ -1902,17 +1902,24 @@ async function loadTpLibAudios() {
   const empty = document.getElementById('tp-lib-empty');
   if (!data?.length) { list.innerHTML = ''; empty.style.display = 'block'; return; }
   empty.style.display = 'none';
-  list.innerHTML = data.map(item => `
-    <div style="background:var(--s2);border:1px solid var(--bdr);border-radius:10px;padding:12px;cursor:pointer;transition:border-color .15s" onclick="selectTpLibAudio('${item.url}','${(item.prompt||'Audio').replace(/'/g,"\'")}',this)">
+  list.innerHTML = data.map(item => {
+    const label = (item.prompt || 'Generated speech').replace(/`/g,'').replace(/'/g,"\'");
+    const safeUrl = item.url.replace(/'/g,'%27');
+    return `<div id="tp-lib-item-${item.id}" style="background:var(--s2);border:2px solid var(--bdr);border-radius:10px;padding:12px;margin-bottom:8px;transition:border-color .15s">
+      <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px">
+        <div style="flex:1;font-size:12px;color:var(--txt2);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${label}</div>
+        <button onclick="selectTpLibAudio('${safeUrl}','${label}','${item.id}')" style="flex-shrink:0;background:var(--grn);border:none;border-radius:8px;color:#fff;font-size:12px;font-weight:600;padding:6px 14px;cursor:pointer">Use</button>
+      </div>
       <audio src="${item.url}" controls style="width:100%;height:32px"></audio>
-      <div style="font-size:12px;color:var(--txt2);margin-top:6px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${item.prompt || 'Generated speech'}</div>
-    </div>`).join('');
+    </div>`;
+  }).join('');
 }
 
-function selectTpLibAudio(url, name, el) {
+function selectTpLibAudio(url, name, id) {
   document.querySelectorAll('#tp-lib-list > div').forEach(d => d.style.borderColor = 'var(--bdr)');
-  el.style.borderColor = 'var(--grn)';
-  tpLibAudioUrl = url;
+  const card = document.getElementById('tp-lib-item-' + id);
+  if (card) card.style.borderColor = 'var(--grn)';
+  tpLibAudioUrl = decodeURIComponent(url.replace(/%27/g,"'"));
   document.getElementById('tp-lib-selected').style.display = 'block';
   document.getElementById('tp-lib-selected-name').textContent = name;
 }
