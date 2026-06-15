@@ -1944,12 +1944,14 @@ Continue?`)) {
   }
 
   try {
-    // Step 1 — upload photo to HeyGen (raw binary, not FormData)
+    // Step 1 — upload photo to HeyGen (multipart, correct field name)
     btn.innerHTML = '<div class="spin"></div> Uploading photo...';
+    const photoForm = new FormData();
+    photoForm.append('smpl_talking_photo_file', tpPhotoFile, tpPhotoFile.name);
     const uploadResp = await fetch('https://upload.heygen.com/v1/talking_photo', {
       method: 'POST',
-      headers: { 'X-Api-Key': keys.heygen, 'Content-Type': tpPhotoFile.type || 'image/jpeg' },
-      body: tpPhotoFile
+      headers: { 'X-Api-Key': keys.heygen },
+      body: photoForm
     });
     if (!uploadResp.ok) { const t = await uploadResp.text(); throw new Error('Photo upload failed: ' + t); }
     const uploadData = await uploadResp.json();
