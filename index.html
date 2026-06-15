@@ -1939,12 +1939,36 @@ async function loadTpLibAudios() {
   });
 }
 
-function selectTpLibAudio(i) {
+async function selectTpLibAudio(i) {
   const item = _tpLibItems[i];
   if (!item) return;
   document.querySelectorAll('#tp-lib-list > div').forEach(d => d.style.borderColor = 'var(--bdr)');
   const card = document.getElementById('tp-lib-card-' + i);
   if (card) card.style.borderColor = 'var(--grn)';
+
+  // If stored as a data: URL, migrate to Supabase NOW before setting tpLibAudioUrl
+  if (item.url && item.url.startsWith('data:')) {
+    const selName = document.getElementById('tp-lib-selected-name');
+    if (selName) selName.textContent = 'Preparing audio…';
+    document.getElementById('tp-lib-selected').style.display = 'block';
+    try {
+      const blob = await (await fetch(item.url)).blob();
+      const path = currentUser.id + '/tts-' + item.id + '.mp3';
+      const { error: upErr } = await sb.storage.from('octopusfur-media').upload(path, blob, { contentType: 'audio/mpeg', upsert: true });
+      if (!upErr) {
+        const { data: pub } = sb.storage.from('octopusfur-media').getPublicUrl(path);
+        if (pub?.publicUrl) {
+          // Update DB and local cache
+          await sb.from('library_items').update({ url: pub.publicUrl }).eq('id', item.id);
+          item.url = pub.publicUrl;
+          // Update the audio src in the card so it streams from the real URL
+          const audio = card?.querySelector('audio');
+          if (audio) { audio.src = pub.publicUrl; audio.load(); }
+        }
+      }
+    } catch(e) { console.warn('Audio migration failed:', e); }
+  }
+
   tpLibAudioUrl = item.url;
   document.getElementById('tp-lib-selected').style.display = 'block';
   document.getElementById('tp-lib-selected-name').textContent = item.prompt || 'Selected audio';
