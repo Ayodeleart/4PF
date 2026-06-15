@@ -2009,11 +2009,10 @@ Continue?`)) {
   try {
     // Step 1 — upload photo to HeyGen /v1/asset (raw binary) → get asset_id → use as talking_photo_id
     btn.innerHTML = '<div class="spin"></div> Uploading photo...';
-    const photoBuffer = await tpPhotoFile.arrayBuffer();
     const photoResp = await fetch('https://upload.heygen.com/v1/asset', {
       method: 'POST',
       headers: { 'X-Api-Key': keys.heygen, 'Content-Type': tpPhotoFile.type || 'image/jpeg' },
-      body: photoBuffer
+      body: tpPhotoFile
     });
     if (!photoResp.ok) { const t = await photoResp.text(); throw new Error('Photo upload failed: ' + t); }
     const photoData = await photoResp.json();
@@ -2029,11 +2028,10 @@ Continue?`)) {
       if (!tpAudioFile) throw new Error('Upload an audio file first');
       btn.innerHTML = '<div class="spin"></div> Uploading audio...';
       // Upload audio to HeyGen /v1/asset → get audio_asset_id
-      const audioBuffer = await tpAudioFile.arrayBuffer();
       const audioResp = await fetch('https://upload.heygen.com/v1/asset', {
         method: 'POST',
         headers: { 'X-Api-Key': keys.heygen, 'Content-Type': tpAudioFile.type || 'audio/mpeg' },
-        body: audioBuffer
+        body: tpAudioFile
       });
       if (!audioResp.ok) { const t = await audioResp.text(); throw new Error('Audio upload failed: ' + t); }
       const audioData = await audioResp.json();
@@ -2049,11 +2047,10 @@ Continue?`)) {
         btn.innerHTML = '<div class="spin"></div> Preparing audio...';
         const res = await fetch(libAudioUrl);
         const blob = await res.blob();
-        const buf = await blob.arrayBuffer();
         const ar = await fetch('https://upload.heygen.com/v1/asset', {
           method: 'POST',
           headers: { 'X-Api-Key': keys.heygen, 'Content-Type': blob.type || 'audio/mpeg' },
-          body: buf
+          body: blob
         });
         if (!ar.ok) { const t = await ar.text(); throw new Error('Audio upload failed: ' + t); }
         const ad = await ar.json();
