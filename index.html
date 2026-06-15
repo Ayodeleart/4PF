@@ -1214,7 +1214,13 @@ function go(screen, params = {}) {
   }
 
   if (screen === 'library') loadLibrary();
-  if (screen === 'tts') renderCustomVoices();
+  if (screen === 'tts') {
+    renderCustomVoices();
+    const savedProvider = localStorage.getItem('ss_tts_provider');
+    const savedVoiceId  = localStorage.getItem('ss_tts_voice_id');
+    if (savedProvider) { const el = document.getElementById('tts-provider'); if (el) { el.value = savedProvider; ttsProviderChange(); } }
+    if (savedVoiceId)  { const el = document.getElementById('tts-voice-id');  if (el) el.value = savedVoiceId; }
+  }
   if (screen === 'chat') loadSessions();
   if (screen === 'heromanage') loadHeroManage();
   if (screen === 'signin') loadLoginBackground();
@@ -1944,19 +1950,15 @@ Continue?`)) {
   }
 
   try {
-    // Step 1 — upload photo to HeyGen (multipart, correct field name)
+    // Step 1 — upload photo to Supabase storage → get public URL for HeyGen
     btn.innerHTML = '<div class="spin"></div> Uploading photo...';
-    const photoForm = new FormData();
-    photoForm.append('smpl_talking_photo_file', tpPhotoFile, tpPhotoFile.name);
-    const uploadResp = await fetch('https://upload.heygen.com/v1/talking_photo', {
-      method: 'POST',
-      headers: { 'X-Api-Key': keys.heygen },
-      body: photoForm
-    });
-    if (!uploadResp.ok) { const t = await uploadResp.text(); throw new Error('Photo upload failed: ' + t); }
-    const uploadData = await uploadResp.json();
-    const talkingPhotoId = uploadData.data?.talking_photo_id;
-    if (!talkingPhotoId) throw new Error('No talking_photo_id returned');
+    const photoExt = tpPhotoFile.name.split('.').pop() || 'jpg';
+    const photoPath = currentUser.id + '/tp-photo-' + Date.now() + '.' + photoExt;
+    const { error: upErr } = await sb.storage.from('octopusfur-media').upload(photoPath, tpPhotoFile, { contentType: tpPhotoFile.type });
+    if (upErr) throw new Error('Photo upload failed: ' + upErr.message);
+    const { data: photoPub } = sb.storage.from('octopusfur-media').getPublicUrl(photoPath);
+    const talkingPhotoUrl = photoPub.publicUrl;
+    if (!talkingPhotoUrl) throw new Error('Could not get photo URL');
 
     // Step 2 — prepare voice input
     let voicePayload;
@@ -1990,7 +1992,7 @@ Continue?`)) {
       method: 'POST',
       headers: { 'X-Api-Key': keys.heygen, 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        video_inputs: [{ character: { type: 'talking_photo', talking_photo_id: talkingPhotoId, scale: 1.0 }, voice: voicePayload, background: { type: 'color', value: '#000000' } }],
+        video_inputs: [{ character: { type: 'talking_photo', talking_photo_url: talkingPhotoUrl, scale: 1.0 }, voice: voicePayload, background: { type: 'color', value: '#000000' } }],
         dimension: dim,
         aspect_ratio: null
       })
@@ -2193,9 +2195,16 @@ async function doTts() {
     ttsBlob = new Blob([ab], { type: 'audio/mpeg' });
     document.getElementById('tts-audio').src = URL.createObjectURL(ttsBlob);
     res.style.display = 'block';
-    const reader = new FileReader();
-    reader.onload = e => { saveLib('audio', e.target.result, text.slice(0, 80)); showSaveToast(); };
-    reader.readAsDataURL(ttsBlob);
+    // Save voice + provider preference
+    localStorage.setItem('ss_tts_provider', provider);
+    localStorage.setItem('ss_tts_voice_id', voiceId);
+    // Upload blob to Supabase storage → store public URL in library (data URLs are too large)
+    const audioPath = currentUser.id + '/tts-' + Date.now() + '.mp3';
+    const { error: audioUpErr } = await sb.storage.from('octopusfur-media').upload(audioPath, ttsBlob, { contentType: 'audio/mpeg' });
+    if (!audioUpErr) {
+      const { data: audioPub } = sb.storage.from('octopusfur-media').getPublicUrl(audioPath);
+      if (audioPub?.publicUrl) { saveLib('audio', audioPub.publicUrl, text.slice(0, 80)); showSaveToast(); }
+    }
   } catch(e) { err.textContent = 'Error: ' + e.message; err.style.display = 'block'; }
   btn.disabled = false; btn.innerHTML = 'Generate Speech';
 }
