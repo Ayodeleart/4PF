@@ -1158,7 +1158,15 @@ function startTemplate(i) {
         if(varSetter) varSetter(image_url);
       };
       if (target_screen==='i2v') setImg(image_url,'i2v-prev','i2v-ph', v=>{ i2vSrc=v; });
-      if (target_screen==='talkphoto') { tpPhotoFile = null; }
+      if (target_screen==='talkphoto') {
+        tpPhotoFile = null; tpAudioFile = null; tpLibAudioUrl = null; tpMode = 'script';
+        document.querySelectorAll('#tp-mode-chips .chip').forEach(c => c.classList.remove('on'));
+        const scriptChip = document.querySelector('#tp-mode-chips .chip[data-mode="script"]');
+        if (scriptChip) scriptChip.classList.add('on');
+        document.getElementById('tp-script-section').style.display  = 'block';
+        document.getElementById('tp-audio-section').style.display   = 'none';
+        document.getElementById('tp-library-section').style.display = 'none';
+      }
       if (target_screen==='refimg') setImg(image_url,'ref-target-prev','ref-target-ph', v=>{ refTargetSrc=v; });
     }
   }, 150);
@@ -1916,8 +1924,8 @@ async function doTalkPhoto() {
   if (!tpPhotoFile) { alert('Upload a face photo first'); return; }
   const btn = document.getElementById('tp-btn');
   const err = document.getElementById('tp-err');
-  const res = document.getElementById('tp-res');
-  btn.disabled = true; err.style.display = 'none'; res.style.display = 'none';
+  const resWrap = document.getElementById('tp-res-wrap');
+  btn.disabled = true; err.style.display = 'none'; resWrap.style.display = 'none';
 
   const resolution = document.getElementById('tp-res').value;
   const dim = resolution === '1080p' ? { width: 1920, height: 1080 } : { width: 1280, height: 720 };
@@ -1936,14 +1944,12 @@ Continue?`)) {
   }
 
   try {
-    // Step 1 — upload photo to HeyGen
+    // Step 1 — upload photo to HeyGen (raw binary, not FormData)
     btn.innerHTML = '<div class="spin"></div> Uploading photo...';
-    const photoForm = new FormData();
-    photoForm.append('file', tpPhotoFile);
     const uploadResp = await fetch('https://upload.heygen.com/v1/talking_photo', {
       method: 'POST',
-      headers: { 'X-Api-Key': keys.heygen },
-      body: photoForm
+      headers: { 'X-Api-Key': keys.heygen, 'Content-Type': tpPhotoFile.type || 'image/jpeg' },
+      body: tpPhotoFile
     });
     if (!uploadResp.ok) { const t = await uploadResp.text(); throw new Error('Photo upload failed: ' + t); }
     const uploadData = await uploadResp.json();
@@ -1954,14 +1960,16 @@ Continue?`)) {
     let voicePayload;
     const style = document.querySelector('#tp-style-chips .chip.on')?.dataset?.val || 'stable';
 
-    if (tpMode === 'audio' && tpAudioFile) {
+    if (tpMode === 'audio') {
+      if (!tpAudioFile) throw new Error('Upload an audio file first');
       btn.innerHTML = '<div class="spin"></div> Uploading audio...';
       const ext = tpAudioFile.name.split('.').pop() || 'mp3';
       const path = currentUser.id + '/tp-audio-' + Date.now() + '.' + ext;
       await sb.storage.from('octopusfur-media').upload(path, tpAudioFile, { contentType: tpAudioFile.type });
       const { data: pubData } = sb.storage.from('octopusfur-media').getPublicUrl(path);
       voicePayload = { type: 'audio', audio_url: pubData.publicUrl };
-    } else if (tpMode === 'library' && tpLibAudioUrl) {
+    } else if (tpMode === 'library') {
+      if (!tpLibAudioUrl) throw new Error('Select an audio clip from your library first');
       voicePayload = { type: 'audio', audio_url: tpLibAudioUrl };
     } else {
       const script = document.getElementById('tp-script').value.trim();
@@ -2009,7 +2017,7 @@ Continue?`)) {
     const vid = document.getElementById('tp-out');
     vid.src = videoUrl;
     vid.load();
-    res.style.display = 'block';
+    resWrap.style.display = 'block';
     saveLib('video', videoUrl, 'talking photo'); showSaveToast();
   } catch(e) { err.textContent = 'Error: ' + e.message; err.style.display = 'block'; }
   btn.disabled = false; btn.innerHTML = '🎬 Generate Talking Video';
