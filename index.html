@@ -1965,15 +1965,19 @@ Continue?`)) {
   }
 
   try {
-    // Step 1 — upload photo to Supabase storage → get public URL for HeyGen
+    // Step 1 — upload photo to HeyGen /v1/asset (raw binary) → get asset_id → use as talking_photo_id
     btn.innerHTML = '<div class="spin"></div> Uploading photo...';
-    const photoExt = tpPhotoFile.name.split('.').pop() || 'jpg';
-    const photoPath = currentUser.id + '/tp-photo-' + Date.now() + '.' + photoExt;
-    const { error: upErr } = await sb.storage.from('octopusfur-media').upload(photoPath, tpPhotoFile, { contentType: tpPhotoFile.type });
-    if (upErr) throw new Error('Photo upload failed: ' + upErr.message);
-    const { data: photoPub } = sb.storage.from('octopusfur-media').getPublicUrl(photoPath);
-    const talkingPhotoUrl = photoPub.publicUrl;
-    if (!talkingPhotoUrl) throw new Error('Could not get photo URL');
+    const photoBuffer = await tpPhotoFile.arrayBuffer();
+    const photoResp = await fetch('https://upload.heygen.com/v1/asset', {
+      method: 'POST',
+      headers: { 'X-Api-Key': keys.heygen, 'Content-Type': tpPhotoFile.type || 'image/jpeg' },
+      body: photoBuffer
+    });
+    if (!photoResp.ok) { const t = await photoResp.text(); throw new Error('Photo upload failed: ' + t); }
+    const photoData = await photoResp.json();
+    if (photoData.code && photoData.code !== 100) throw new Error('Photo upload failed: ' + JSON.stringify(photoData));
+    const talkingPhotoId = photoData.data?.id || photoData.data?.talking_photo_id || photoData.data?.asset_id;
+    if (!talkingPhotoId) throw new Error('No photo ID returned: ' + JSON.stringify(photoData));
 
     // Step 2 — prepare voice input
     let voicePayload;
@@ -1982,11 +1986,19 @@ Continue?`)) {
     if (tpMode === 'audio') {
       if (!tpAudioFile) throw new Error('Upload an audio file first');
       btn.innerHTML = '<div class="spin"></div> Uploading audio...';
-      const ext = tpAudioFile.name.split('.').pop() || 'mp3';
-      const path = currentUser.id + '/tp-audio-' + Date.now() + '.' + ext;
-      await sb.storage.from('octopusfur-media').upload(path, tpAudioFile, { contentType: tpAudioFile.type });
-      const { data: pubData } = sb.storage.from('octopusfur-media').getPublicUrl(path);
-      voicePayload = { type: 'audio', audio_url: pubData.publicUrl };
+      // Upload audio to HeyGen /v1/asset → get audio_asset_id
+      const audioBuffer = await tpAudioFile.arrayBuffer();
+      const audioResp = await fetch('https://upload.heygen.com/v1/asset', {
+        method: 'POST',
+        headers: { 'X-Api-Key': keys.heygen, 'Content-Type': tpAudioFile.type || 'audio/mpeg' },
+        body: audioBuffer
+      });
+      if (!audioResp.ok) { const t = await audioResp.text(); throw new Error('Audio upload failed: ' + t); }
+      const audioData = await audioResp.json();
+      if (audioData.code && audioData.code !== 100) throw new Error('Audio upload failed: ' + JSON.stringify(audioData));
+      const audioAssetId = audioData.data?.id || audioData.data?.asset_id;
+      if (!audioAssetId) throw new Error('No audio ID returned: ' + JSON.stringify(audioData));
+      voicePayload = { type: 'audio', audio_asset_id: audioAssetId };
     } else if (tpMode === 'library') {
       if (!tpLibAudioUrl) throw new Error('Select an audio clip from your library first');
       voicePayload = { type: 'audio', audio_url: tpLibAudioUrl };
@@ -2003,17 +2015,18 @@ Continue?`)) {
 
     // Step 3 — generate video
     btn.innerHTML = '<div class="spin"></div> Generating (~30–60s)...';
+    const tpStyle = document.querySelector('#tp-style-chips .chip.on')?.dataset?.val || 'stable';
     const genResp = await fetch('https://api.heygen.com/v2/video/generate', {
       method: 'POST',
       headers: { 'X-Api-Key': keys.heygen, 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        video_inputs: [{ character: { type: 'talking_photo', talking_photo_url: talkingPhotoUrl, scale: 1.0 }, voice: voicePayload, background: { type: 'color', value: '#000000' } }],
-        dimension: dim,
-        aspect_ratio: null
+        video_inputs: [{ character: { type: 'talking_photo', talking_photo_id: talkingPhotoId, scale: 1.0, talking_photo_style: 'square', talking_style: tpStyle }, voice: voicePayload, background: { type: 'color', value: '#000000' } }],
+        dimension: dim
       })
     });
     if (!genResp.ok) { const t = await genResp.text(); throw new Error('Generate failed: ' + t); }
     const genData = await genResp.json();
+    if (genData.error) throw new Error('Generate failed: ' + JSON.stringify(genData));
     const videoId = genData.data?.video_id;
     if (!videoId) throw new Error('No video_id returned: ' + JSON.stringify(genData));
 
