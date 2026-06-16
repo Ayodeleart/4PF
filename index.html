@@ -2007,9 +2007,9 @@ Continue?`)) {
   }
 
   try {
-    // Step 1 — upload photo to HeyGen /v1/asset (raw binary) → get asset_id → use as talking_photo_id
+    // Step 1 — upload photo to HeyGen /v1/talking_photo → registers face + creates avatar look in workspace
     btn.innerHTML = '<div class="spin"></div> Uploading photo...';
-    const photoResp = await fetch('https://upload.heygen.com/v1/asset', {
+    const photoResp = await fetch('https://upload.heygen.com/v1/talking_photo', {
       method: 'POST',
       headers: { 'X-Api-Key': keys.heygen, 'Content-Type': tpPhotoFile.type || 'image/jpeg' },
       body: tpPhotoFile
@@ -2017,7 +2017,7 @@ Continue?`)) {
     if (!photoResp.ok) { const t = await photoResp.text(); throw new Error('Photo upload failed: ' + t); }
     const photoData = await photoResp.json();
     if (photoData.code && photoData.code !== 100) throw new Error('Photo upload failed: ' + JSON.stringify(photoData));
-    const talkingPhotoId = photoData.data?.id || photoData.data?.talking_photo_id || photoData.data?.asset_id;
+    const talkingPhotoId = photoData.data?.talking_photo_id || photoData.data?.id || photoData.data?.asset_id;
     if (!talkingPhotoId) throw new Error('No photo ID returned: ' + JSON.stringify(photoData));
 
     // Step 2 — prepare voice input
