@@ -2078,8 +2078,9 @@ Continue?`)) {
       method: 'POST',
       headers: { 'X-Api-Key': keys.heygen, 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        video_inputs: [{ character: { type: 'talking_photo', talking_photo_id: talkingPhotoId, talking_style: tpStyle }, voice: voicePayload, background: { type: 'color', value: '#000000' } }],
-        dimension: dim
+        video_inputs: [{ character: { type: 'talking_photo', talking_photo_id: talkingPhotoId, talking_style: tpStyle, use_avatar_iv_model: true, expressiveness: 'high' }, voice: voicePayload, background: { type: 'color', value: '#000000' } }],
+        dimension: dim,
+        motion_prompt: 'natural full body movement, subtle ambient background motion, gentle environmental animation, realistic body sway'
       })
     });
     if (!genResp.ok) { const t = await genResp.text(); throw new Error('Generate failed: ' + t); }
