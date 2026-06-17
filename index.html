@@ -30,7 +30,11 @@
   --nb:rgba(255,255,255,.72);--nbb:rgba(0,0,0,.1);
 }
 *{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent;touch-action:manipulation}
-html,body{background:var(--bg);color:var(--txt);font-family:'DM Sans',system-ui,sans-serif;min-height:100dvh;overflow-x:hidden;overscroll-behavior:none}
+html,body{background:var(--bg);color:var(--txt);font-family:'DM Sans',system-ui,sans-serif;height:100%;min-height:100dvh;overflow-x:hidden;overscroll-behavior:none}
+/* Full-bleed backdrop — fixed boxes use the true visual viewport (incl. safe areas) unlike 100dvh,
+   which on some iOS standalone-PWA versions excludes the bottom safe-area-inset and leaves a gap
+   where the WebView's own background shows through as a black strip at the very bottom edge. */
+body::before{content:'';position:fixed;inset:0;background:var(--bg);z-index:-10;pointer-events:none}
 ::-webkit-scrollbar{display:none}
 *{scrollbar-width:none;-ms-overflow-style:none}
 img,video{max-width:100%}
@@ -132,6 +136,13 @@ select.inp{cursor:pointer;appearance:none;background-image:url("data:image/svg+x
 .chat-send{width:34px;height:34px;border-radius:50%;background:var(--txt);border:none;display:flex;align-items:center;justify-content:center;cursor:pointer;flex-shrink:0;color:var(--bg);transition:opacity .15s}
 .chat-send:active{opacity:.7}
 .chat-attach{background:none;border:none;color:var(--txt3);cursor:pointer;width:34px;height:34px;display:flex;align-items:center;justify-content:center;flex-shrink:0}
+.msg-actions{display:flex;align-items:center;gap:10px;padding:5px 4px 0 6px}
+.ma-btn{background:none;border:none;color:var(--txt3);cursor:pointer;width:26px;height:26px;display:flex;align-items:center;justify-content:center;padding:0;flex-shrink:0;border-radius:6px;transition:color .15s,background .15s}
+.ma-btn:active{background:var(--s2)}
+.ma-btn.on[data-fb="up"]{color:var(--grn)}
+.ma-btn.on[data-fb="down"]{color:var(--red)}
+.ma-copied{font-size:11px;color:var(--txt3);opacity:0;transition:opacity .2s;pointer-events:none;align-self:center}
+.ma-copied.show{opacity:1}
 
 /* ── SIDEBAR ── */
 #sidebar{position:fixed;top:0;left:-310px;width:300px;height:100dvh;background:var(--s1);border-right:1px solid var(--bdr);z-index:201;transition:left .3s cubic-bezier(.25,.1,.25,1);display:flex;flex-direction:column}
@@ -295,6 +306,21 @@ select.inp{cursor:pointer;appearance:none;background-image:url("data:image/svg+x
     </div>
   </div>
 </div>
+<script>
+  // Runs synchronously, before paint — removes signin screen immediately if a valid
+  // cached session exists, so logged-in users never see it flash on load/refresh.
+  (function(){
+    try {
+      var stored = localStorage.getItem('sb-lvjatrpupssmpftutkzt-auth-token');
+      if (stored) {
+        var parsed = JSON.parse(stored);
+        if (parsed && parsed.access_token && parsed.user) {
+          document.getElementById('screen-signin').classList.remove('on');
+        }
+      }
+    } catch(e) {}
+  })();
+</script>
 
 <!-- Email Sign-In Overlay -->
 <div id="email-overlay">
@@ -1112,6 +1138,7 @@ async function initApp() {
   if (k.elabs)  { const e=document.getElementById('key-elabs');  if(e) e.value=masked(k.elabs); }
   if (k.heygen) { const e=document.getElementById('key-heygen'); if(e) e.value=masked(k.heygen); }
   loadHiddenPresets().then(renderVoicePresets);
+  loadCustomVoices().then(renderCustomVoices);
   go('home');
 }
 
@@ -1449,10 +1476,10 @@ async function loadSession(id) {
   const s = sessions.find(x => x.id === id);
   document.getElementById('chat-title').textContent = s?.title || 'AI Chat';
   const { data } = await sb.from('chat_messages').select('*').eq('session_id', id).order('created_at', { ascending: true });
-  chatHistory = (data || []).map(m => ({ role: m.role, content: m.content }));
+  chatHistory = (data || []).map(m => ({ role: m.role, content: m.content, _dbId: m.id }));
   const msgsEl = document.getElementById('chat-msgs');
   msgsEl.innerHTML = '';
-  chatHistory.forEach(m => appendMsg(m.role, m.content));
+  chatHistory.forEach((m, i) => appendMsg(m.role, m.content, false, i));
   msgsEl.scrollTop = msgsEl.scrollHeight;
   renderSessions(); closeSidebar();
 }
@@ -1471,18 +1498,113 @@ async function deleteSession(id) {
   renderSessions();
 }
 
-function appendMsg(role, content, isTyping = false) {
+function appendMsg(role, content, isTyping = false, idx = null) {
   const msgs = document.getElementById('chat-msgs');
   const group = document.createElement('div');
   group.className = 'msg-group ' + (role === 'user' ? 'u' : 'a');
+  if (idx !== null) group.dataset.idx = idx;
   const bubble = document.createElement('div');
   bubble.className = 'msg';
   if (isTyping) { bubble.id = 'typing-bubble'; bubble.innerHTML = '<span class="td"></span><span class="td"></span><span class="td"></span>'; }
   else { bubble.textContent = content; }
   group.appendChild(bubble);
+  if (role === 'assistant' && !isTyping) group.appendChild(buildMsgActions());
   msgs.appendChild(group);
   msgs.scrollTop = msgs.scrollHeight;
   return bubble;
+}
+
+function buildMsgActions() {
+  const wrap = document.createElement('div');
+  wrap.className = 'msg-actions';
+  wrap.innerHTML = `
+    <button class="ma-btn" onclick="copyMsg(this)" title="Copy"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg></button>
+    <button class="ma-btn" data-fb="up" onclick="rateMsg(this,'up')" title="Good response"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M7 11v9H4a1 1 0 0 1-1-1v-7a1 1 0 0 1 1-1h3zm0 0 4.5-8.5a1.5 1.5 0 0 1 2.7 1.3L13 9h5.3a2 2 0 0 1 1.94 2.5l-1.6 6.5A2 2 0 0 1 16.7 20H9a2 2 0 0 1-2-2v-7z"/></svg></button>
+    <button class="ma-btn" data-fb="down" onclick="rateMsg(this,'down')" title="Bad response"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M17 13V4h3a1 1 0 0 1 1 1v7a1 1 0 0 1-1 1h-3zm0 0-4.5 8.5a1.5 1.5 0 0 1-2.7-1.3L11 15H5.7a2 2 0 0 1-1.94-2.5l1.6-6.5A2 2 0 0 1 7.3 4H15a2 2 0 0 1 2 2v7z"/></svg></button>
+    <button class="ma-btn" onclick="reloadMsg(this)" title="Regenerate"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/></svg></button>
+    <span class="ma-copied">Copied</span>`;
+  return wrap;
+}
+
+function copyMsg(btn) {
+  const group = btn.closest('.msg-group');
+  const idx = Number(group.dataset.idx);
+  const text = chatHistory[idx]?.content ?? group.querySelector('.msg').textContent;
+  const flag = group.querySelector('.ma-copied');
+  const showCopied = () => { if (flag) { flag.classList.add('show'); setTimeout(() => flag.classList.remove('show'), 1200); } };
+  if (navigator.clipboard?.writeText) {
+    navigator.clipboard.writeText(text).then(showCopied).catch(() => fallbackCopy(text, showCopied));
+  } else fallbackCopy(text, showCopied);
+}
+function fallbackCopy(text, cb) {
+  const ta = document.createElement('textarea');
+  ta.value = text; ta.style.position = 'fixed'; ta.style.opacity = '0';
+  document.body.appendChild(ta); ta.select();
+  try { document.execCommand('copy'); cb(); } catch(e) {}
+  document.body.removeChild(ta);
+}
+
+function rateMsg(btn, dir) {
+  const group = btn.closest('.msg-group');
+  group.querySelectorAll('.ma-btn[data-fb]').forEach(b => b.classList.remove('on'));
+  btn.classList.add('on');
+}
+
+async function callModel(model, keys) {
+  if (model === 'gemini') {
+    const contents = chatHistory.map(m => {
+      const parts = [];
+      if (m._imgData) parts.push({ inline_data: { mime_type: m._imgType || 'image/jpeg', data: m._imgData } });
+      if (m.content && m.content !== '[image]') parts.push({ text: m.content });
+      if (!parts.length) parts.push({ text: m.content || '' });
+      return { role: m.role === 'assistant' ? 'model' : 'user', parts };
+    });
+    const resp = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${keys.gem}`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ contents, generationConfig: { maxOutputTokens: 1024 } })
+    });
+    const data = await resp.json();
+    return data.candidates?.[0]?.content?.parts?.[0]?.text
+      || (data.error?.message ? 'Error: ' + data.error.message : 'No response.');
+  } else {
+    const resp = await fetch('https://api.groq.com/openai/v1/chat/completions', {
+      method: 'POST',
+      headers: { 'Authorization': 'Bearer ' + keys.groq, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ model: 'llama-3.3-70b-versatile', max_tokens: 1024, messages: chatHistory.map(m => ({ role: m.role, content: m.content || '' })) })
+    });
+    const data = await resp.json();
+    return data.choices?.[0]?.message?.content || (data.error?.message ? 'Error: ' + data.error.message : 'No response.');
+  }
+}
+
+async function reloadMsg(btn) {
+  const group = btn.closest('.msg-group');
+  const idx = Number(group.dataset.idx);
+  if (isNaN(idx)) return;
+  const model = document.getElementById('chat-model').value;
+  const keys = getKeys();
+  if (model === 'gemini' && !keys.gem) { alert('Add your Gemini API key in Profile > API Keys'); return; }
+  if (model !== 'gemini' && !keys.groq) { alert('Add your Groq API key in Profile > API Keys'); return; }
+
+  // Drop this assistant reply (and anything after it) from history, DOM, and DB
+  const removed = chatHistory.splice(idx);
+  document.querySelectorAll('#chat-msgs .msg-group').forEach(g => { if (Number(g.dataset.idx) >= idx) g.remove(); });
+  const idsToDelete = removed.map(m => m._dbId).filter(Boolean);
+  if (idsToDelete.length) await sb.from('chat_messages').delete().in('id', idsToDelete);
+
+  const typingBubble = appendMsg('assistant', '', true);
+  try {
+    const reply = await callModel(model, keys);
+    typingBubble.closest('.msg-group').remove();
+    const newIdx = chatHistory.length;
+    appendMsg('assistant', reply, false, newIdx);
+    const { data: insA } = await sb.from('chat_messages').insert({ session_id: activeSession, role: 'assistant', content: reply }).select().single();
+    chatHistory.push({ role: 'assistant', content: reply, _dbId: insA?.id });
+  } catch(e) {
+    typingBubble.closest('.msg-group').remove();
+    appendMsg('assistant', 'Error: ' + e.message, false, chatHistory.length);
+  }
 }
 
 function chatKey(e) { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendChat(); } }
@@ -1529,9 +1651,9 @@ async function sendChat() {
   const imgData = mediaBase64; const imgType = mediaType;
   clearMedia();
 
-  appendMsg('user', userText);
-  chatHistory.push({ role: 'user', content: text || '[image]', _imgData: imgData, _imgType: imgType });
-  await sb.from('chat_messages').insert({ session_id: activeSession, role: 'user', content: userText });
+  appendMsg('user', userText, false, chatHistory.length);
+  const { data: insUser } = await sb.from('chat_messages').insert({ session_id: activeSession, role: 'user', content: userText }).select().single();
+  chatHistory.push({ role: 'user', content: text || '[image]', _imgData: imgData, _imgType: imgType, _dbId: insUser?.id });
 
   if (chatHistory.length === 1) {
     const title = userText.slice(0,40) + (userText.length > 40 ? '...' : '');
@@ -1544,44 +1666,15 @@ async function sendChat() {
 
   const typingBubble = appendMsg('assistant', '', true);
   try {
-    let reply;
-
-    if (model === 'gemini') {
-      // Build Gemini contents array from history
-      const contents = chatHistory.map(m => {
-        const parts = [];
-        if (m._imgData) parts.push({ inline_data: { mime_type: m._imgType || 'image/jpeg', data: m._imgData } });
-        if (m.content && m.content !== '[image]') parts.push({ text: m.content });
-        if (!parts.length) parts.push({ text: m.content || '' });
-        return { role: m.role === 'assistant' ? 'model' : 'user', parts };
-      });
-      const resp = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${keys.gem}`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ contents, generationConfig: { maxOutputTokens: 1024 } })
-      });
-      const data = await resp.json();
-      reply = data.candidates?.[0]?.content?.parts?.[0]?.text
-        || (data.error?.message ? 'Error: ' + data.error.message : 'No response.');
-
-    } else {
-      // Groq — text only
-      const resp = await fetch('https://api.groq.com/openai/v1/chat/completions', {
-        method: 'POST',
-        headers: { 'Authorization': 'Bearer ' + keys.groq, 'Content-Type': 'application/json' },
-        body: JSON.stringify({ model: 'llama-3.3-70b-versatile', max_tokens: 1024, messages: chatHistory.map(m => ({ role: m.role, content: m.content || '' })) })
-      });
-      const data = await resp.json();
-      reply = data.choices?.[0]?.message?.content || (data.error?.message ? 'Error: ' + data.error.message : 'No response.');
-    }
-
+    const reply = await callModel(model, keys);
     typingBubble.closest('.msg-group').remove();
-    appendMsg('assistant', reply);
-    chatHistory.push({ role: 'assistant', content: reply });
-    await sb.from('chat_messages').insert({ session_id: activeSession, role: 'assistant', content: reply });
+    const aIdx = chatHistory.length;
+    appendMsg('assistant', reply, false, aIdx);
+    const { data: insA } = await sb.from('chat_messages').insert({ session_id: activeSession, role: 'assistant', content: reply }).select().single();
+    chatHistory.push({ role: 'assistant', content: reply, _dbId: insA?.id });
   } catch(e) {
     typingBubble.closest('.msg-group').remove();
-    appendMsg('assistant', 'Error: ' + e.message);
+    appendMsg('assistant', 'Error: ' + e.message, false, chatHistory.length);
   }
 }
 
@@ -2207,15 +2300,23 @@ function renderVoicePresets() {
     </button>`).join('');
 }
 
-function loadCustomVoices() {
-  try { return JSON.parse(sessionStorage.getItem('customVoices') || '[]'); } catch { return []; }
+let _customVoices = [];
+async function loadCustomVoices() {
+  if (!currentUser) return [];
+  try {
+    const { data } = await sb.from('user_api_keys').select('custom_voices').eq('user_id', currentUser.id).single();
+    _customVoices = data?.custom_voices || [];
+  } catch(e) { _customVoices = []; }
+  return _customVoices;
 }
-function saveCustomVoices(arr) { sessionStorage.setItem('customVoices', JSON.stringify(arr)); }
+async function saveCustomVoicesDB() {
+  if (!currentUser) return;
+  await sb.from('user_api_keys').upsert({ user_id: currentUser.id, custom_voices: _customVoices, updated_at: new Date().toISOString() }, { onConflict: 'user_id' });
+}
 function renderCustomVoices() {
-  const voices = loadCustomVoices();
   const list = document.getElementById('custom-voice-list');
   if (!list) return;
-  list.innerHTML = voices.map((v, i) => `
+  list.innerHTML = _customVoices.map((v, i) => `
     <button class="vc" data-id="${esc(v.id)}" onclick="pickPresetVoice(this)" style="padding-right:8px">
       <div style="flex:1"><div class="vc-n">${esc(v.name)}</div><div class="vc-d">Custom · Your Voice</div></div>
       <button onclick="event.stopPropagation();deleteCustomVoice(${i})" style="background:none;border:none;color:var(--txt3);cursor:pointer;width:28px;height:28px;border-radius:7px;display:flex;align-items:center;justify-content:center;flex-shrink:0" title="Remove">
@@ -2223,21 +2324,22 @@ function renderCustomVoices() {
       </button>
     </button>`).join('');
 }
-function addCustomVoice() {
+async function addCustomVoice() {
   const name = document.getElementById('cv-name').value.trim();
   const id = document.getElementById('cv-id').value.trim();
   if (!name || !id) { alert('Enter both a name and Voice ID'); return; }
-  const voices = loadCustomVoices();
-  voices.push({ name, id });
-  saveCustomVoices(voices);
+  const btn = document.querySelector('[onclick="addCustomVoice()"]');
+  if (btn) btn.disabled = true;
+  _customVoices.push({ name, id });
+  await saveCustomVoicesDB();
   document.getElementById('cv-name').value = '';
   document.getElementById('cv-id').value = '';
   renderCustomVoices();
+  if (btn) btn.disabled = false;
 }
-function deleteCustomVoice(i) {
-  const voices = loadCustomVoices();
-  voices.splice(i, 1);
-  saveCustomVoices(voices);
+async function deleteCustomVoice(i) {
+  _customVoices.splice(i, 1);
+  await saveCustomVoicesDB();
   renderCustomVoices();
 }
 
