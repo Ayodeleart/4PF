@@ -35,6 +35,12 @@ html,body{background:var(--bg);color:var(--txt);font-family:'DM Sans',system-ui,
    which on some iOS standalone-PWA versions excludes the bottom safe-area-inset and leaves a gap
    where the WebView's own background shows through as a black strip at the very bottom edge. */
 body::before{content:'';position:fixed;inset:0;background:var(--bg);z-index:-10;pointer-events:none}
+
+/* ── PRELOADER (full-bleed splash shown until logo/avatar/hero images are ready) ── */
+#preloader{position:fixed;inset:0;z-index:99999;background:var(--bg);display:flex;align-items:center;justify-content:center;transition:opacity .35s ease}
+#preloader.hide{opacity:0;pointer-events:none}
+#preloader img{width:58px;height:58px;object-fit:contain;animation:pl-pulse 1.3s ease-in-out infinite}
+@keyframes pl-pulse{0%,100%{opacity:.35;transform:scale(.9)}50%{opacity:1;transform:scale(1)}}
 ::-webkit-scrollbar{display:none}
 *{scrollbar-width:none;-ms-overflow-style:none}
 img,video{max-width:100%}
@@ -270,6 +276,7 @@ select.inp{cursor:pointer;appearance:none;background-image:url("data:image/svg+x
 </style>
 </head>
 <body>
+<div id="preloader"><img src="logo-main.png" alt="" onerror="this.style.display='none'"></div>
 <!-- Save toast -->
 <div id="save-toast"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--grn)" stroke-width="2.5" stroke-linecap="round"><polyline points="20 6 9 17 4 12"/></svg> Saved to Library</div>
 
@@ -1035,6 +1042,23 @@ async function loadKeysFromDB() {
 // ── INIT ──
 let authMode = 'signin'; // 'signin' | 'signup'
 
+function preloadImage(src, timeoutMs = 1500) {
+  return new Promise(resolve => {
+    if (!src) return resolve();
+    const img = new Image();
+    let done = false;
+    const finish = () => { if (!done) { done = true; resolve(); } };
+    img.onload = finish; img.onerror = finish; img.src = src;
+    setTimeout(finish, timeoutMs);
+  });
+}
+function hidePreloader() {
+  const pl = document.getElementById('preloader');
+  if (!pl) return;
+  pl.classList.add('hide');
+  setTimeout(() => pl.remove(), 400);
+}
+
 document.addEventListener('DOMContentLoaded', async () => {
   applyTheme(localStorage.getItem('ss_theme') || 'dark');
   sb = window.supabase.createClient(SB_URL, SB_KEY);
@@ -1043,10 +1067,11 @@ document.addEventListener('DOMContentLoaded', async () => {
     document.getElementById('tts-cnt').textContent = this.value.length + ' characters';
   });
 
-  loadLoginBackground();
+  const corePreload = Promise.all([preloadImage('logo-main.png'), preloadImage('logo-pwa.png')]);
   loadTemplates();
 
   // Check localStorage synchronously — no spinner, no delay
+  let readyPromise;
   const stored = localStorage.getItem('sb-lvjatrpupssmpftutkzt-auth-token');
   if (stored) {
     try {
@@ -1054,20 +1079,31 @@ document.addEventListener('DOMContentLoaded', async () => {
       if (parsed?.access_token && parsed?.user) {
         currentUser = parsed.user;
         sb.auth.setSession({ access_token: parsed.access_token, refresh_token: parsed.refresh_token });
-        initApp();
-        return;
+        readyPromise = initApp();
       }
     } catch(e) {}
   }
 
-  // No cached session — show signin immediately
-  go('signin');
+  if (!readyPromise) {
+    // No cached session — show signin immediately, but hold the preloader until its background image is ready
+    go('signin');
+    readyPromise = loadLoginBackground();
+  }
 
   // Still verify in background for token refresh
   sb.auth.onAuthStateChange((_event, session) => {
     if (session?.user && currentScreen === 'signin') { currentUser = session.user; initApp(); }
     else if (!session?.user && currentScreen !== 'signin') { currentUser = null; go('signin'); }
   });
+
+  try {
+    await Promise.race([
+      Promise.all([corePreload, readyPromise]),
+      new Promise(r => setTimeout(r, 1800)) // hard cap so a slow/dead network never hangs the splash
+    ]);
+  } finally {
+    hidePreloader();
+  }
 });
 
 async function loadLoginBackground() {
@@ -1939,6 +1975,7 @@ async function doI2V() {
   try { wakeLock?.release(); } catch(_) {}
 }
 function refPickFile(inp) { readFile(inp, r => { refSrc = r; const p = document.getElementById('ref-prev'); p.src = r; p.style.display = 'block'; document.getElementById('ref-ph').style.display = 'none'; }); }
+function refTargetPickFile(inp) { readFile(inp, r => { refTargetSrc = r; const p = document.getElementById('ref-target-prev'); p.src = r; p.style.display = 'block'; document.getElementById('ref-target-ph').style.display = 'none'; }); }
 function pickRefMode(el) { document.querySelectorAll('#ref-mode-chips .chip').forEach(c => c.classList.remove('on')); el.classList.add('on'); refMode = el.dataset.mode; }
 async function doRefImg() {
   if (!refSrc) { alert('Upload a reference image'); return; }
