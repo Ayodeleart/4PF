@@ -30,17 +30,7 @@
   --nb:rgba(255,255,255,.72);--nbb:rgba(0,0,0,.1);
 }
 *{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent;touch-action:manipulation}
-html,body{background:var(--bg);color:var(--txt);font-family:'DM Sans',system-ui,sans-serif;height:100%;min-height:100dvh;overflow-x:hidden;overscroll-behavior:none}
-/* Full-bleed backdrop — fixed boxes use the true visual viewport (incl. safe areas) unlike 100dvh,
-   which on some iOS standalone-PWA versions excludes the bottom safe-area-inset and leaves a gap
-   where the WebView's own background shows through as a black strip at the very bottom edge. */
-body::before{content:'';position:fixed;inset:0;background:var(--bg);z-index:-10;pointer-events:none}
-
-/* ── PRELOADER (full-bleed splash shown until logo/avatar/hero images are ready) ── */
-#preloader{position:fixed;inset:0;z-index:99999;background:var(--bg);display:flex;align-items:center;justify-content:center;transition:opacity .35s ease}
-#preloader.hide{opacity:0;pointer-events:none}
-#preloader img{width:58px;height:58px;object-fit:contain;animation:pl-pulse 1.3s ease-in-out infinite}
-@keyframes pl-pulse{0%,100%{opacity:.35;transform:scale(.9)}50%{opacity:1;transform:scale(1)}}
+html,body{background:var(--bg);color:var(--txt);font-family:'DM Sans',system-ui,sans-serif;min-height:100dvh;overflow-x:hidden;overscroll-behavior:none}
 ::-webkit-scrollbar{display:none}
 *{scrollbar-width:none;-ms-overflow-style:none}
 img,video{max-width:100%}
@@ -142,13 +132,6 @@ select.inp{cursor:pointer;appearance:none;background-image:url("data:image/svg+x
 .chat-send{width:34px;height:34px;border-radius:50%;background:var(--txt);border:none;display:flex;align-items:center;justify-content:center;cursor:pointer;flex-shrink:0;color:var(--bg);transition:opacity .15s}
 .chat-send:active{opacity:.7}
 .chat-attach{background:none;border:none;color:var(--txt3);cursor:pointer;width:34px;height:34px;display:flex;align-items:center;justify-content:center;flex-shrink:0}
-.msg-actions{display:flex;align-items:center;gap:10px;padding:5px 4px 0 6px}
-.ma-btn{background:none;border:none;color:var(--txt3);cursor:pointer;width:26px;height:26px;display:flex;align-items:center;justify-content:center;padding:0;flex-shrink:0;border-radius:6px;transition:color .15s,background .15s}
-.ma-btn:active{background:var(--s2)}
-.ma-btn.on[data-fb="up"]{color:var(--grn)}
-.ma-btn.on[data-fb="down"]{color:var(--red)}
-.ma-copied{font-size:11px;color:var(--txt3);opacity:0;transition:opacity .2s;pointer-events:none;align-self:center}
-.ma-copied.show{opacity:1}
 
 /* ── SIDEBAR ── */
 #sidebar{position:fixed;top:0;left:-310px;width:300px;height:100dvh;background:var(--s1);border-right:1px solid var(--bdr);z-index:201;transition:left .3s cubic-bezier(.25,.1,.25,1);display:flex;flex-direction:column}
@@ -276,7 +259,6 @@ select.inp{cursor:pointer;appearance:none;background-image:url("data:image/svg+x
 </style>
 </head>
 <body>
-<div id="preloader"><img src="logo-main.png" alt="" onerror="this.style.display='none'"></div>
 <!-- Save toast -->
 <div id="save-toast"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--grn)" stroke-width="2.5" stroke-linecap="round"><polyline points="20 6 9 17 4 12"/></svg> Saved to Library</div>
 
@@ -313,21 +295,6 @@ select.inp{cursor:pointer;appearance:none;background-image:url("data:image/svg+x
     </div>
   </div>
 </div>
-<script>
-  // Runs synchronously, before paint — removes signin screen immediately if a valid
-  // cached session exists, so logged-in users never see it flash on load/refresh.
-  (function(){
-    try {
-      var stored = localStorage.getItem('sb-lvjatrpupssmpftutkzt-auth-token');
-      if (stored) {
-        var parsed = JSON.parse(stored);
-        if (parsed && parsed.access_token && parsed.user) {
-          document.getElementById('screen-signin').classList.remove('on');
-        }
-      }
-    } catch(e) {}
-  })();
-</script>
 
 <!-- Email Sign-In Overlay -->
 <div id="email-overlay">
@@ -587,6 +554,14 @@ select.inp{cursor:pointer;appearance:none;background-image:url("data:image/svg+x
       ⏳ Kling takes ~6 minutes. <strong>Keep this screen open</strong> while generating — don't lock your phone.
     </div>
     <div class="sec"><label class="lbl">Video Prompt</label><textarea id="pvid-prompt" class="inp" rows="5" placeholder="A woman walking through a neon-lit city at night, cinematic, slow motion..."></textarea></div>
+    <div class="sec">
+      <label class="lbl">Reference Images <span style="color:var(--txt3);font-weight:400;font-size:12px">optional — up to 5, guides the visual style</span></label>
+      <input type="file" id="pvid-file" accept="image/*" multiple hidden onchange="pvidPickFiles(this)">
+      <div id="pvid-grid" style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:8px"></div>
+      <div class="upload-box" onclick="document.getElementById('pvid-file').click()" style="margin-top:0">
+        <div class="uph"><svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="var(--txt3)" stroke-width="1.5" stroke-linecap="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg><span style="font-size:13px">Add reference images (optional)</span></div>
+      </div>
+    </div>
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px" class="sec">
       <div><label class="lbl">Duration</label><select id="pvid-dur" class="inp"><option value="5">5 sec</option><option value="10" selected>10 sec</option></select></div>
       <div><label class="lbl">Quality</label><select id="pvid-mode" class="inp"><option value="standard">Standard</option><option value="pro">Pro</option></select></div>
@@ -616,11 +591,11 @@ select.inp{cursor:pointer;appearance:none;background-image:url("data:image/svg+x
   </div>
   <div class="pscroll">
     <div class="sec">
-      <label class="lbl">Source Image</label>
-      <input type="file" id="i2v-file" accept="image/*" hidden onchange="i2vPickFile(this)">
-      <div class="upload-box" onclick="document.getElementById('i2v-file').click()">
-        <img id="i2v-prev" style="width:100%;max-height:200px;object-fit:cover;display:none" alt="">
-        <div class="uph" id="i2v-ph"><svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="var(--txt3)" stroke-width="1.5" stroke-linecap="round"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg><span style="font-size:14px">Tap to upload image</span><span style="font-size:12px">or select sample above</span></div>
+      <label class="lbl">Images <span style="color:var(--txt3);font-weight:400;font-size:12px">up to 5 — AI weaves them into one video</span></label>
+      <input type="file" id="i2v-file" accept="image/*" multiple hidden onchange="i2vPickFiles(this)">
+      <div id="i2v-grid" style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:8px"></div>
+      <div id="i2v-add-btn" class="upload-box" onclick="document.getElementById('i2v-file').click()" style="margin-top:0">
+        <div class="uph" id="i2v-ph"><svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="var(--txt3)" stroke-width="1.5" stroke-linecap="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg><span style="font-size:14px">Tap to add images</span></div>
       </div>
     </div>
     <div class="sec"><label class="lbl">Motion Prompt</label><textarea id="i2v-prompt" class="inp" rows="3" placeholder="slowly turns head, hair flowing in wind..."></textarea></div>
@@ -771,7 +746,6 @@ select.inp{cursor:pointer;appearance:none;background-image:url("data:image/svg+x
       <label class="lbl">What to copy</label>
       <div style="display:flex;gap:8px;flex-wrap:wrap" id="ref-mode-chips">
         <button class="chip on" data-mode="style" onclick="pickRefMode(this)">Style</button>
-        <button class="chip" data-mode="face" onclick="pickRefMode(this)">Face</button>
         <button class="chip" data-mode="pose" onclick="pickRefMode(this)">Pose</button>
         <button class="chip" data-mode="style and pose" onclick="pickRefMode(this)">Style + Pose</button>
         <button class="chip" data-mode="lighting and color palette" onclick="pickRefMode(this)">Lighting</button>
@@ -1019,7 +993,36 @@ let sessions = [], activeSession = null, chatHistory = [];
 let libItems = [], libF = 'all';
 let heroSlides = [], heroIdx = 0;
 let ttsBlob = null, mediaBase64 = null, mediaType = null;
-let i2vSrc = null, refSrc = null, refTargetSrc = null, refMode = 'style';
+let i2vSrcs = [], pvidSrcs = [], refSrc = null, refTargetSrc = null, refMode = 'style';
+
+function renderImgGrid(srcs, gridId, removeHandler) {
+  const grid = document.getElementById(gridId);
+  if (!grid) return;
+  grid.innerHTML = srcs.map((src, i) => `
+    <div style="position:relative;aspect-ratio:1;border-radius:10px;overflow:hidden;background:var(--s2)">
+      <img src="${src}" style="width:100%;height:100%;object-fit:cover">
+      <button onclick="${removeHandler}(${i})" style="position:absolute;top:4px;right:4px;background:rgba(0,0,0,.7);border:none;border-radius:50%;width:22px;height:22px;display:flex;align-items:center;justify-content:center;cursor:pointer;color:#fff;padding:0">
+        <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+      </button>
+    </div>`).join('');
+}
+
+function readFileAsDataURL(file) {
+  return new Promise(resolve => { const r = new FileReader(); r.onload = e => resolve(e.target.result); r.readAsDataURL(file); });
+}
+function i2vPickFiles(inp) {
+  const files = Array.from(inp.files).slice(0, 5 - i2vSrcs.length);
+  Promise.all(files.map(readFileAsDataURL)).then(results => { i2vSrcs.push(...results); renderImgGrid(i2vSrcs, 'i2v-grid', 'i2vRemove'); });
+  inp.value = '';
+}
+function i2vRemove(i) { i2vSrcs.splice(i, 1); renderImgGrid(i2vSrcs, 'i2v-grid', 'i2vRemove'); }
+
+function pvidPickFiles(inp) {
+  const files = Array.from(inp.files).slice(0, 5 - pvidSrcs.length);
+  Promise.all(files.map(readFileAsDataURL)).then(results => { pvidSrcs.push(...results); renderImgGrid(pvidSrcs, 'pvid-grid', 'pvidRemove'); });
+  inp.value = '';
+}
+function pvidRemove(i) { pvidSrcs.splice(i, 1); renderImgGrid(pvidSrcs, 'pvid-grid', 'pvidRemove'); }
 let appTemplates = [];
 
 const DEFAULT_SLIDES = [
@@ -1043,23 +1046,6 @@ async function loadKeysFromDB() {
 // ── INIT ──
 let authMode = 'signin'; // 'signin' | 'signup'
 
-function preloadImage(src, timeoutMs = 1500) {
-  return new Promise(resolve => {
-    if (!src) return resolve();
-    const img = new Image();
-    let done = false;
-    const finish = () => { if (!done) { done = true; resolve(); } };
-    img.onload = finish; img.onerror = finish; img.src = src;
-    setTimeout(finish, timeoutMs);
-  });
-}
-function hidePreloader() {
-  const pl = document.getElementById('preloader');
-  if (!pl) return;
-  pl.classList.add('hide');
-  setTimeout(() => pl.remove(), 400);
-}
-
 document.addEventListener('DOMContentLoaded', async () => {
   applyTheme(localStorage.getItem('ss_theme') || 'dark');
   sb = window.supabase.createClient(SB_URL, SB_KEY);
@@ -1068,11 +1054,10 @@ document.addEventListener('DOMContentLoaded', async () => {
     document.getElementById('tts-cnt').textContent = this.value.length + ' characters';
   });
 
-  const corePreload = Promise.all([preloadImage('logo-main.png'), preloadImage('logo-pwa.png')]);
+  loadLoginBackground();
   loadTemplates();
 
   // Check localStorage synchronously — no spinner, no delay
-  let readyPromise;
   const stored = localStorage.getItem('sb-lvjatrpupssmpftutkzt-auth-token');
   if (stored) {
     try {
@@ -1080,31 +1065,20 @@ document.addEventListener('DOMContentLoaded', async () => {
       if (parsed?.access_token && parsed?.user) {
         currentUser = parsed.user;
         sb.auth.setSession({ access_token: parsed.access_token, refresh_token: parsed.refresh_token });
-        readyPromise = initApp();
+        initApp();
+        return;
       }
     } catch(e) {}
   }
 
-  if (!readyPromise) {
-    // No cached session — show signin immediately, but hold the preloader until its background image is ready
-    go('signin');
-    readyPromise = loadLoginBackground();
-  }
+  // No cached session — show signin immediately
+  go('signin');
 
   // Still verify in background for token refresh
   sb.auth.onAuthStateChange((_event, session) => {
     if (session?.user && currentScreen === 'signin') { currentUser = session.user; initApp(); }
     else if (!session?.user && currentScreen !== 'signin') { currentUser = null; go('signin'); }
   });
-
-  try {
-    await Promise.race([
-      Promise.all([corePreload, readyPromise]),
-      new Promise(r => setTimeout(r, 1800)) // hard cap so a slow/dead network never hangs the splash
-    ]);
-  } finally {
-    hidePreloader();
-  }
 });
 
 async function loadLoginBackground() {
@@ -1175,7 +1149,6 @@ async function initApp() {
   if (k.elabs)  { const e=document.getElementById('key-elabs');  if(e) e.value=masked(k.elabs); }
   if (k.heygen) { const e=document.getElementById('key-heygen'); if(e) e.value=masked(k.heygen); }
   loadHiddenPresets().then(renderVoicePresets);
-  loadCustomVoices().then(renderCustomVoices);
   go('home');
 }
 
@@ -1513,10 +1486,10 @@ async function loadSession(id) {
   const s = sessions.find(x => x.id === id);
   document.getElementById('chat-title').textContent = s?.title || 'AI Chat';
   const { data } = await sb.from('chat_messages').select('*').eq('session_id', id).order('created_at', { ascending: true });
-  chatHistory = (data || []).map(m => ({ role: m.role, content: m.content, _dbId: m.id }));
+  chatHistory = (data || []).map(m => ({ role: m.role, content: m.content }));
   const msgsEl = document.getElementById('chat-msgs');
   msgsEl.innerHTML = '';
-  chatHistory.forEach((m, i) => appendMsg(m.role, m.content, false, i));
+  chatHistory.forEach(m => appendMsg(m.role, m.content));
   msgsEl.scrollTop = msgsEl.scrollHeight;
   renderSessions(); closeSidebar();
 }
@@ -1535,113 +1508,18 @@ async function deleteSession(id) {
   renderSessions();
 }
 
-function appendMsg(role, content, isTyping = false, idx = null) {
+function appendMsg(role, content, isTyping = false) {
   const msgs = document.getElementById('chat-msgs');
   const group = document.createElement('div');
   group.className = 'msg-group ' + (role === 'user' ? 'u' : 'a');
-  if (idx !== null) group.dataset.idx = idx;
   const bubble = document.createElement('div');
   bubble.className = 'msg';
   if (isTyping) { bubble.id = 'typing-bubble'; bubble.innerHTML = '<span class="td"></span><span class="td"></span><span class="td"></span>'; }
   else { bubble.textContent = content; }
   group.appendChild(bubble);
-  if (role === 'assistant' && !isTyping) group.appendChild(buildMsgActions());
   msgs.appendChild(group);
   msgs.scrollTop = msgs.scrollHeight;
   return bubble;
-}
-
-function buildMsgActions() {
-  const wrap = document.createElement('div');
-  wrap.className = 'msg-actions';
-  wrap.innerHTML = `
-    <button class="ma-btn" onclick="copyMsg(this)" title="Copy"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg></button>
-    <button class="ma-btn" data-fb="up" onclick="rateMsg(this,'up')" title="Good response"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M7 11v9H4a1 1 0 0 1-1-1v-7a1 1 0 0 1 1-1h3zm0 0 4.5-8.5a1.5 1.5 0 0 1 2.7 1.3L13 9h5.3a2 2 0 0 1 1.94 2.5l-1.6 6.5A2 2 0 0 1 16.7 20H9a2 2 0 0 1-2-2v-7z"/></svg></button>
-    <button class="ma-btn" data-fb="down" onclick="rateMsg(this,'down')" title="Bad response"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M17 13V4h3a1 1 0 0 1 1 1v7a1 1 0 0 1-1 1h-3zm0 0-4.5 8.5a1.5 1.5 0 0 1-2.7-1.3L11 15H5.7a2 2 0 0 1-1.94-2.5l1.6-6.5A2 2 0 0 1 7.3 4H15a2 2 0 0 1 2 2v7z"/></svg></button>
-    <button class="ma-btn" onclick="reloadMsg(this)" title="Regenerate"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/></svg></button>
-    <span class="ma-copied">Copied</span>`;
-  return wrap;
-}
-
-function copyMsg(btn) {
-  const group = btn.closest('.msg-group');
-  const idx = Number(group.dataset.idx);
-  const text = chatHistory[idx]?.content ?? group.querySelector('.msg').textContent;
-  const flag = group.querySelector('.ma-copied');
-  const showCopied = () => { if (flag) { flag.classList.add('show'); setTimeout(() => flag.classList.remove('show'), 1200); } };
-  if (navigator.clipboard?.writeText) {
-    navigator.clipboard.writeText(text).then(showCopied).catch(() => fallbackCopy(text, showCopied));
-  } else fallbackCopy(text, showCopied);
-}
-function fallbackCopy(text, cb) {
-  const ta = document.createElement('textarea');
-  ta.value = text; ta.style.position = 'fixed'; ta.style.opacity = '0';
-  document.body.appendChild(ta); ta.select();
-  try { document.execCommand('copy'); cb(); } catch(e) {}
-  document.body.removeChild(ta);
-}
-
-function rateMsg(btn, dir) {
-  const group = btn.closest('.msg-group');
-  group.querySelectorAll('.ma-btn[data-fb]').forEach(b => b.classList.remove('on'));
-  btn.classList.add('on');
-}
-
-async function callModel(model, keys) {
-  if (model === 'gemini') {
-    const contents = chatHistory.map(m => {
-      const parts = [];
-      if (m._imgData) parts.push({ inline_data: { mime_type: m._imgType || 'image/jpeg', data: m._imgData } });
-      if (m.content && m.content !== '[image]') parts.push({ text: m.content });
-      if (!parts.length) parts.push({ text: m.content || '' });
-      return { role: m.role === 'assistant' ? 'model' : 'user', parts };
-    });
-    const resp = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${keys.gem}`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ contents, generationConfig: { maxOutputTokens: 1024 } })
-    });
-    const data = await resp.json();
-    return data.candidates?.[0]?.content?.parts?.[0]?.text
-      || (data.error?.message ? 'Error: ' + data.error.message : 'No response.');
-  } else {
-    const resp = await fetch('https://api.groq.com/openai/v1/chat/completions', {
-      method: 'POST',
-      headers: { 'Authorization': 'Bearer ' + keys.groq, 'Content-Type': 'application/json' },
-      body: JSON.stringify({ model: 'llama-3.3-70b-versatile', max_tokens: 1024, messages: chatHistory.map(m => ({ role: m.role, content: m.content || '' })) })
-    });
-    const data = await resp.json();
-    return data.choices?.[0]?.message?.content || (data.error?.message ? 'Error: ' + data.error.message : 'No response.');
-  }
-}
-
-async function reloadMsg(btn) {
-  const group = btn.closest('.msg-group');
-  const idx = Number(group.dataset.idx);
-  if (isNaN(idx)) return;
-  const model = document.getElementById('chat-model').value;
-  const keys = getKeys();
-  if (model === 'gemini' && !keys.gem) { alert('Add your Gemini API key in Profile > API Keys'); return; }
-  if (model !== 'gemini' && !keys.groq) { alert('Add your Groq API key in Profile > API Keys'); return; }
-
-  // Drop this assistant reply (and anything after it) from history, DOM, and DB
-  const removed = chatHistory.splice(idx);
-  document.querySelectorAll('#chat-msgs .msg-group').forEach(g => { if (Number(g.dataset.idx) >= idx) g.remove(); });
-  const idsToDelete = removed.map(m => m._dbId).filter(Boolean);
-  if (idsToDelete.length) await sb.from('chat_messages').delete().in('id', idsToDelete);
-
-  const typingBubble = appendMsg('assistant', '', true);
-  try {
-    const reply = await callModel(model, keys);
-    typingBubble.closest('.msg-group').remove();
-    const newIdx = chatHistory.length;
-    appendMsg('assistant', reply, false, newIdx);
-    const { data: insA } = await sb.from('chat_messages').insert({ session_id: activeSession, role: 'assistant', content: reply }).select().single();
-    chatHistory.push({ role: 'assistant', content: reply, _dbId: insA?.id });
-  } catch(e) {
-    typingBubble.closest('.msg-group').remove();
-    appendMsg('assistant', 'Error: ' + e.message, false, chatHistory.length);
-  }
 }
 
 function chatKey(e) { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendChat(); } }
@@ -1688,9 +1566,9 @@ async function sendChat() {
   const imgData = mediaBase64; const imgType = mediaType;
   clearMedia();
 
-  appendMsg('user', userText, false, chatHistory.length);
-  const { data: insUser } = await sb.from('chat_messages').insert({ session_id: activeSession, role: 'user', content: userText }).select().single();
-  chatHistory.push({ role: 'user', content: text || '[image]', _imgData: imgData, _imgType: imgType, _dbId: insUser?.id });
+  appendMsg('user', userText);
+  chatHistory.push({ role: 'user', content: text || '[image]', _imgData: imgData, _imgType: imgType });
+  await sb.from('chat_messages').insert({ session_id: activeSession, role: 'user', content: userText });
 
   if (chatHistory.length === 1) {
     const title = userText.slice(0,40) + (userText.length > 40 ? '...' : '');
@@ -1703,15 +1581,44 @@ async function sendChat() {
 
   const typingBubble = appendMsg('assistant', '', true);
   try {
-    const reply = await callModel(model, keys);
+    let reply;
+
+    if (model === 'gemini') {
+      // Build Gemini contents array from history
+      const contents = chatHistory.map(m => {
+        const parts = [];
+        if (m._imgData) parts.push({ inline_data: { mime_type: m._imgType || 'image/jpeg', data: m._imgData } });
+        if (m.content && m.content !== '[image]') parts.push({ text: m.content });
+        if (!parts.length) parts.push({ text: m.content || '' });
+        return { role: m.role === 'assistant' ? 'model' : 'user', parts };
+      });
+      const resp = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${keys.gem}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ contents, generationConfig: { maxOutputTokens: 1024 } })
+      });
+      const data = await resp.json();
+      reply = data.candidates?.[0]?.content?.parts?.[0]?.text
+        || (data.error?.message ? 'Error: ' + data.error.message : 'No response.');
+
+    } else {
+      // Groq — text only
+      const resp = await fetch('https://api.groq.com/openai/v1/chat/completions', {
+        method: 'POST',
+        headers: { 'Authorization': 'Bearer ' + keys.groq, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ model: 'llama-3.3-70b-versatile', max_tokens: 1024, messages: chatHistory.map(m => ({ role: m.role, content: m.content || '' })) })
+      });
+      const data = await resp.json();
+      reply = data.choices?.[0]?.message?.content || (data.error?.message ? 'Error: ' + data.error.message : 'No response.');
+    }
+
     typingBubble.closest('.msg-group').remove();
-    const aIdx = chatHistory.length;
-    appendMsg('assistant', reply, false, aIdx);
-    const { data: insA } = await sb.from('chat_messages').insert({ session_id: activeSession, role: 'assistant', content: reply }).select().single();
-    chatHistory.push({ role: 'assistant', content: reply, _dbId: insA?.id });
+    appendMsg('assistant', reply);
+    chatHistory.push({ role: 'assistant', content: reply });
+    await sb.from('chat_messages').insert({ session_id: activeSession, role: 'assistant', content: reply });
   } catch(e) {
     typingBubble.closest('.msg-group').remove();
-    appendMsg('assistant', 'Error: ' + e.message, false, chatHistory.length);
+    appendMsg('assistant', 'Error: ' + e.message);
   }
 }
 
@@ -1933,13 +1840,22 @@ async function doPVid() {
   const dur  = document.getElementById('pvid-dur').value;
   const mode = document.getElementById('pvid-mode').value;
   const cost = mode === 'pro' ? (dur === '5' ? '$0.56' : '$1.12') : (dur === '5' ? '$0.28' : '$0.56');
-  const ok = confirm(`This will use ~${cost} of your FAL credits.\n\n${dur}s · ${mode} quality\n\nContinue?`);
+  const ok = confirm(`This will use ~${cost} of your FAL credits.\n\n${dur}s · ${mode} quality${pvidSrcs.length ? ' · ' + pvidSrcs.length + ' ref image' + (pvidSrcs.length>1?'s':'') : ''}\n\nContinue?`);
   if (!ok) return;
   const btn = document.getElementById('pvid-btn'); const err = document.getElementById('pvid-err'); const res = document.getElementById('pvid-res');
   btn.disabled = true; btn.innerHTML = '<div class="spin"></div> Submitting...'; err.style.display = 'none'; res.style.display = 'none';
   let wakeLock = null; try { wakeLock = await navigator.wakeLock?.request('screen'); } catch(_) {}
   try {
-    const data = await falQueue(`fal-ai/kling-video/v1.6/${mode}/text-to-video`, { prompt, duration: dur, aspect_ratio: document.getElementById('pvid-ratio').value }, 'pvid-btn', 'Generating');
+    const params = { prompt, duration: dur, aspect_ratio: document.getElementById('pvid-ratio').value };
+    if (pvidSrcs.length) {
+      btn.innerHTML = '<div class="spin"></div> Uploading refs...';
+      const refUrls = await Promise.all(pvidSrcs.map(src => toPublicUrl(src)));
+      // Kling accepts image_url as a single style reference; use first image as primary
+      params.image_url = refUrls[0];
+      if (refUrls.length > 1) params.tail_image_url = refUrls[refUrls.length - 1];
+      btn.innerHTML = '<div class="spin"></div> Submitting...';
+    }
+    const data = await falQueue(`fal-ai/kling-video/v1.6/${mode}/text-to-video`, params, 'pvid-btn', 'Generating');
     const url = data.video?.url; if (!url) throw new Error('No video URL — response: ' + JSON.stringify(data));
     res.style.display = 'block';
     await loadVideoEl('pvid-out', url, err);
@@ -1953,63 +1869,51 @@ function pickSample(el, url, prefix) {
   el.classList.add('on');
   if (prefix === 'i2v') { i2vSrc = url; const p = document.getElementById('i2v-prev'); p.src = url; p.style.display = 'block'; document.getElementById('i2v-ph').style.display = 'none'; }
 }
-function i2vPickFile(inp) { readFile(inp, r => { i2vSrc = r; const p = document.getElementById('i2v-prev'); p.src = r; p.style.display = 'block'; document.getElementById('i2v-ph').style.display = 'none'; document.querySelectorAll('#i2v-samples .sc').forEach(s => s.classList.remove('on')); }); }
+function i2vPickFile(inp) { i2vPickFiles(inp); } // legacy alias
 async function doI2V() {
-  if (!i2vSrc) { alert('Select or upload a source image'); return; }
+  if (!i2vSrcs.length) { alert('Add at least one image'); return; }
   const dur  = document.getElementById('i2v-dur').value;
   const mode = document.getElementById('i2v-mode').value;
   const cost = mode === 'pro' ? (dur === '5' ? '$0.56' : '$1.12') : (dur === '5' ? '$0.28' : '$0.56');
-  if (!confirm(`This will use ~${cost} of your FAL credits.\n\n${dur}s · ${mode} quality\n\nContinue?`)) return;
+  if (!confirm(`This will use ~${cost} of your FAL credits.\n\n${i2vSrcs.length} image${i2vSrcs.length>1?'s':''} · ${dur}s · ${mode}\n\nContinue?`)) return;
   const btn = document.getElementById('i2v-btn'); const err = document.getElementById('i2v-err'); const res = document.getElementById('i2v-res');
   btn.disabled = true; btn.innerHTML = '<div class="spin"></div> Uploading...'; err.style.display = 'none'; res.style.display = 'none';
   let wakeLock = null; try { wakeLock = await navigator.wakeLock?.request('screen'); } catch(_) {}
   try {
-    const imageUrl = await toPublicUrl(i2vSrc);
+    const urls = await Promise.all(i2vSrcs.map(src => toPublicUrl(src)));
     btn.innerHTML = '<div class="spin"></div> Submitting...';
-    const data = await falQueue(`fal-ai/kling-video/v1.6/${mode}/image-to-video`, { image_url: imageUrl, prompt: document.getElementById('i2v-prompt').value, duration: dur, aspect_ratio: document.getElementById('i2v-ratio').value }, 'i2v-btn', 'Animating');
-    const url = data.video?.url; if (!url) throw new Error('No video URL — response: ' + JSON.stringify(data));
+    let data;
+    const prompt = document.getElementById('i2v-prompt').value;
+    const ratio  = document.getElementById('i2v-ratio').value;
+    if (urls.length === 1) {
+      data = await falQueue(`fal-ai/kling-video/v1.6/${mode}/image-to-video`,
+        { image_url: urls[0], prompt, duration: dur, aspect_ratio: ratio }, 'i2v-btn', 'Animating');
+    } else {
+      // Multi-image: Kling v2 multi-image-to-video — takes array of image objects
+      data = await falQueue(`fal-ai/kling-video/v2/pro/multi-image-to-video`,
+        { images: urls.map((url, idx) => ({ url, first_frame: idx === 0, last_frame: idx === urls.length - 1 })),
+          prompt, duration: dur, aspect_ratio: ratio }, 'i2v-btn', 'Animating');
+    }
+    const url = data.video?.url; if (!url) throw new Error('No video URL — ' + JSON.stringify(data));
     res.style.display = 'block';
     await loadVideoEl('i2v-out', url, err);
-    saveLib('video', url, document.getElementById('i2v-prompt').value); showSaveToast();
+    saveLib('video', url, prompt); showSaveToast();
   } catch(e) { err.textContent = e.message; err.style.display = 'block'; }
   btn.disabled = false; btn.innerHTML = 'Animate';
   try { wakeLock?.release(); } catch(_) {}
 }
 function refPickFile(inp) { readFile(inp, r => { refSrc = r; const p = document.getElementById('ref-prev'); p.src = r; p.style.display = 'block'; document.getElementById('ref-ph').style.display = 'none'; }); }
-function refTargetPickFile(inp) { readFile(inp, r => { refTargetSrc = r; const p = document.getElementById('ref-target-prev'); p.src = r; p.style.display = 'block'; document.getElementById('ref-target-ph').style.display = 'none'; }); }
 function pickRefMode(el) { document.querySelectorAll('#ref-mode-chips .chip').forEach(c => c.classList.remove('on')); el.classList.add('on'); refMode = el.dataset.mode; }
 async function doRefImg() {
   if (!refSrc) { alert('Upload a reference image'); return; }
   if (!refTargetSrc) { alert('Upload a target image'); return; }
   const extraPrompt = document.getElementById('ref-prompt').value.trim();
+  const prompt = `Apply the ${refMode} of the first image to the subject in the second image.${extraPrompt ? ' ' + extraPrompt : ''}`;
   const btn = document.getElementById('ref-btn'); const err = document.getElementById('ref-err'); const res = document.getElementById('ref-res');
   btn.disabled = true; btn.innerHTML = '<div class="spin"></div> Transforming...'; err.style.display = 'none'; res.style.display = 'none';
   try {
-    let url;
-    if (refMode === 'face') {
-      // IP-Adapter Face ID — takes reference face + target image and transplants the face properly
-      const data = await falRun('fal-ai/ip-adapter-face-id', {
-        face_image_url: refSrc,
-        image_url: refTargetSrc,
-        prompt: extraPrompt || 'high quality, realistic, same scene and lighting as target image',
-        negative_prompt: 'blurry, distorted, bad anatomy, deformed',
-        num_inference_steps: 30,
-        ip_adapter_scale: 0.85
-      });
-      url = data.images?.[0]?.url;
-    } else {
-      // Style / Pose / Lighting — pass BOTH images so the reference is actually used
-      const prompt = `Apply the ${refMode} of the reference image to the subject in the target image.${extraPrompt ? ' ' + extraPrompt : ''}`;
-      const data = await falRun('fal-ai/flux/dev/image-to-image', {
-        image_url: refTargetSrc,
-        reference_image_url: refSrc,
-        prompt,
-        strength: parseFloat(document.getElementById('ref-strength').value),
-        num_inference_steps: 28
-      });
-      url = data.images?.[0]?.url;
-    }
-    if (!url) throw new Error('No image returned');
+    const data = await falRun('fal-ai/flux/dev/image-to-image', { image_url: refTargetSrc, prompt, strength: parseFloat(document.getElementById('ref-strength').value), num_inference_steps: 28 });
+    const url = data.images?.[0]?.url; if (!url) throw new Error('No image URL');
     document.getElementById('ref-out').src = url; res.style.display = 'block';
     saveLib('image', url, extraPrompt); showSaveToast();
   } catch(e) { err.textContent = e.message; err.style.display = 'block'; }
@@ -2160,17 +2064,18 @@ Continue?`)) {
   }
 
   try {
-    // Step 1 — upload photo to HeyGen /v1/talking_photo → registers face + creates avatar look in workspace
+    // Step 1 — upload photo to HeyGen /v1/asset (raw binary) → get asset_id → use as talking_photo_id
     btn.innerHTML = '<div class="spin"></div> Uploading photo...';
-    const photoResp = await fetch('https://upload.heygen.com/v1/talking_photo', {
+    const photoBuffer = await tpPhotoFile.arrayBuffer();
+    const photoResp = await fetch('https://upload.heygen.com/v1/asset', {
       method: 'POST',
       headers: { 'X-Api-Key': keys.heygen, 'Content-Type': tpPhotoFile.type || 'image/jpeg' },
-      body: tpPhotoFile
+      body: photoBuffer
     });
     if (!photoResp.ok) { const t = await photoResp.text(); throw new Error('Photo upload failed: ' + t); }
     const photoData = await photoResp.json();
     if (photoData.code && photoData.code !== 100) throw new Error('Photo upload failed: ' + JSON.stringify(photoData));
-    const talkingPhotoId = photoData.data?.talking_photo_id || photoData.data?.id || photoData.data?.asset_id;
+    const talkingPhotoId = photoData.data?.id || photoData.data?.talking_photo_id || photoData.data?.asset_id;
     if (!talkingPhotoId) throw new Error('No photo ID returned: ' + JSON.stringify(photoData));
 
     // Step 2 — prepare voice input
@@ -2181,10 +2086,11 @@ Continue?`)) {
       if (!tpAudioFile) throw new Error('Upload an audio file first');
       btn.innerHTML = '<div class="spin"></div> Uploading audio...';
       // Upload audio to HeyGen /v1/asset → get audio_asset_id
+      const audioBuffer = await tpAudioFile.arrayBuffer();
       const audioResp = await fetch('https://upload.heygen.com/v1/asset', {
         method: 'POST',
         headers: { 'X-Api-Key': keys.heygen, 'Content-Type': tpAudioFile.type || 'audio/mpeg' },
-        body: tpAudioFile
+        body: audioBuffer
       });
       if (!audioResp.ok) { const t = await audioResp.text(); throw new Error('Audio upload failed: ' + t); }
       const audioData = await audioResp.json();
@@ -2200,10 +2106,11 @@ Continue?`)) {
         btn.innerHTML = '<div class="spin"></div> Preparing audio...';
         const res = await fetch(libAudioUrl);
         const blob = await res.blob();
+        const buf = await blob.arrayBuffer();
         const ar = await fetch('https://upload.heygen.com/v1/asset', {
           method: 'POST',
           headers: { 'X-Api-Key': keys.heygen, 'Content-Type': blob.type || 'audio/mpeg' },
-          body: blob
+          body: buf
         });
         if (!ar.ok) { const t = await ar.text(); throw new Error('Audio upload failed: ' + t); }
         const ad = await ar.json();
@@ -2231,9 +2138,8 @@ Continue?`)) {
       method: 'POST',
       headers: { 'X-Api-Key': keys.heygen, 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        video_inputs: [{ character: { type: 'talking_photo', talking_photo_id: talkingPhotoId, talking_style: tpStyle, use_avatar_iv_model: true, expressiveness: 'high' }, voice: voicePayload, background: { type: 'color', value: '#000000' } }],
-        dimension: dim,
-        motion_prompt: 'natural full body movement, subtle ambient background motion, gentle environmental animation, realistic body sway'
+        video_inputs: [{ character: { type: 'talking_photo', talking_photo_id: talkingPhotoId, scale: 1.0, talking_photo_style: 'square', talking_style: tpStyle }, voice: voicePayload, background: { type: 'color', value: '#000000' } }],
+        dimension: dim
       })
     });
     if (!genResp.ok) { const t = await genResp.text(); throw new Error('Generate failed: ' + t); }
@@ -2272,18 +2178,6 @@ document.addEventListener('DOMContentLoaded', () => {
   document.getElementById('tp-voice-id')?.addEventListener('change', function() {
     document.getElementById('tp-voice-custom').style.display = this.value === 'custom' ? 'block' : 'none';
   });
-
-  // ── PREVENT iOS ZOOM (double-tap & pinch) ──
-  document.addEventListener('gesturestart',  e => e.preventDefault(), { passive: false });
-  document.addEventListener('gesturechange', e => e.preventDefault(), { passive: false });
-  document.addEventListener('gestureend',    e => e.preventDefault(), { passive: false });
-  document.addEventListener('touchstart', e => { if (e.touches.length > 1) e.preventDefault(); }, { passive: false });
-  let _lastTap = 0;
-  document.addEventListener('touchend', e => {
-    const now = Date.now();
-    if (now - _lastTap < 300) e.preventDefault();
-    _lastTap = now;
-  }, { passive: false });
 });
 
 // ── CHANGE PASSWORD ──
@@ -2360,23 +2254,15 @@ function renderVoicePresets() {
     </button>`).join('');
 }
 
-let _customVoices = [];
-async function loadCustomVoices() {
-  if (!currentUser) return [];
-  try {
-    const { data } = await sb.from('user_api_keys').select('custom_voices').eq('user_id', currentUser.id).single();
-    _customVoices = data?.custom_voices || [];
-  } catch(e) { _customVoices = []; }
-  return _customVoices;
+function loadCustomVoices() {
+  try { return JSON.parse(sessionStorage.getItem('customVoices') || '[]'); } catch { return []; }
 }
-async function saveCustomVoicesDB() {
-  if (!currentUser) return;
-  await sb.from('user_api_keys').upsert({ user_id: currentUser.id, custom_voices: _customVoices, updated_at: new Date().toISOString() }, { onConflict: 'user_id' });
-}
+function saveCustomVoices(arr) { sessionStorage.setItem('customVoices', JSON.stringify(arr)); }
 function renderCustomVoices() {
+  const voices = loadCustomVoices();
   const list = document.getElementById('custom-voice-list');
   if (!list) return;
-  list.innerHTML = _customVoices.map((v, i) => `
+  list.innerHTML = voices.map((v, i) => `
     <button class="vc" data-id="${esc(v.id)}" onclick="pickPresetVoice(this)" style="padding-right:8px">
       <div style="flex:1"><div class="vc-n">${esc(v.name)}</div><div class="vc-d">Custom · Your Voice</div></div>
       <button onclick="event.stopPropagation();deleteCustomVoice(${i})" style="background:none;border:none;color:var(--txt3);cursor:pointer;width:28px;height:28px;border-radius:7px;display:flex;align-items:center;justify-content:center;flex-shrink:0" title="Remove">
@@ -2384,22 +2270,21 @@ function renderCustomVoices() {
       </button>
     </button>`).join('');
 }
-async function addCustomVoice() {
+function addCustomVoice() {
   const name = document.getElementById('cv-name').value.trim();
   const id = document.getElementById('cv-id').value.trim();
   if (!name || !id) { alert('Enter both a name and Voice ID'); return; }
-  const btn = document.querySelector('[onclick="addCustomVoice()"]');
-  if (btn) btn.disabled = true;
-  _customVoices.push({ name, id });
-  await saveCustomVoicesDB();
+  const voices = loadCustomVoices();
+  voices.push({ name, id });
+  saveCustomVoices(voices);
   document.getElementById('cv-name').value = '';
   document.getElementById('cv-id').value = '';
   renderCustomVoices();
-  if (btn) btn.disabled = false;
 }
-async function deleteCustomVoice(i) {
-  _customVoices.splice(i, 1);
-  await saveCustomVoicesDB();
+function deleteCustomVoice(i) {
+  const voices = loadCustomVoices();
+  voices.splice(i, 1);
+  saveCustomVoices(voices);
   renderCustomVoices();
 }
 
