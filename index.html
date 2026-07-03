@@ -591,7 +591,7 @@ select.inp{cursor:pointer;appearance:none;background-image:url("data:image/svg+x
   </div>
   <div class="pscroll">
     <div class="sec">
-      <label class="lbl">Images <span style="color:var(--txt3);font-weight:400;font-size:12px">up to 5 — AI weaves them into one video</span></label>
+      <label class="lbl">Images <span style="color:var(--txt3);font-weight:400;font-size:12px">up to 4 — AI weaves them into one video</span></label>
       <input type="file" id="i2v-file" accept="image/*" multiple hidden onchange="i2vPickFiles(this)">
       <div id="i2v-grid" style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:8px"></div>
       <div id="i2v-add-btn" class="upload-box" onclick="document.getElementById('i2v-file').click()" style="margin-top:0">
@@ -1011,7 +1011,7 @@ function readFileAsDataURL(file) {
   return new Promise(resolve => { const r = new FileReader(); r.onload = e => resolve(e.target.result); r.readAsDataURL(file); });
 }
 function i2vPickFiles(inp) {
-  const files = Array.from(inp.files).slice(0, 5 - i2vSrcs.length);
+  const files = Array.from(inp.files).slice(0, 4 - i2vSrcs.length);
   Promise.all(files.map(readFileAsDataURL)).then(results => { i2vSrcs.push(...results); renderImgGrid(i2vSrcs, 'i2v-grid', 'i2vRemove'); });
   inp.value = '';
 }
@@ -1889,10 +1889,8 @@ async function doI2V() {
       data = await falQueue(`fal-ai/kling-video/v1.6/${mode}/image-to-video`,
         { image_url: urls[0], prompt, duration: dur, aspect_ratio: ratio }, 'i2v-btn', 'Animating');
     } else {
-      // Multi-image: Kling v2 multi-image-to-video — takes array of image objects
-      data = await falQueue(`fal-ai/kling-video/v2/pro/multi-image-to-video`,
-        { images: urls.map((url, idx) => ({ url, first_frame: idx === 0, last_frame: idx === urls.length - 1 })),
-          prompt, duration: dur, aspect_ratio: ratio }, 'i2v-btn', 'Animating');
+      data = await falQueue(`fal-ai/kling-video/v1.6/standard/elements`,
+        { image_urls: urls.slice(0, 4), prompt, duration: dur, aspect_ratio: ratio }, 'i2v-btn', 'Animating');
     }
     const url = data.video?.url; if (!url) throw new Error('No video URL — ' + JSON.stringify(data));
     res.style.display = 'block';
