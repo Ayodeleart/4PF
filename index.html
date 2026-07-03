@@ -1623,20 +1623,33 @@ async function sendChat() {
 }
 
 // ── FAL IMAGE UPLOAD (converts base64 data URL → public FAL CDN URL for Kling) ──
+// Convert any image dataURL to JPEG via canvas — handles HEIC, WebP, AVIF, HEIF etc.
+function normaliseToJpeg(dataUrl) {
+  return new Promise((resolve, reject) => {
+    const img = new Image();
+    img.onload = () => {
+      const c = document.createElement('canvas');
+      c.width = img.naturalWidth; c.height = img.naturalHeight;
+      c.getContext('2d').drawImage(img, 0, 0);
+      resolve(c.toDataURL('image/jpeg', 0.92));
+    };
+    img.onerror = reject;
+    img.src = dataUrl;
+  });
+}
+
 async function falUploadImage(dataUrl) {
   const keys = getKeys();
   if (!keys.fal) throw new Error('Add your FAL.ai key in Profile > API Keys');
-  // Convert data URL → Blob
-  const [header, b64] = dataUrl.split(',');
-  const mime = header.match(/:(.*?);/)[1];
+
+  // Always normalise to JPEG — Kling rejects HEIC/WebP/AVIF and URLs without extension
+  const jpeg = await normaliseToJpeg(dataUrl);
+  const b64  = jpeg.split(',')[1];
   const bytes = atob(b64);
   const arr = new Uint8Array(bytes.length);
   for (let i = 0; i < bytes.length; i++) arr[i] = bytes.charCodeAt(i);
-  const blob = new Blob([arr], { type: mime });
-  // Force .jpg extension — Kling's elements endpoint validates format from the URL
-  // and rejects CDN URLs without a recognised image extension
-  const ext = mime === 'image/png' ? 'png' : 'jpg';
-  const file = new File([blob], `upload.${ext}`, { type: mime });
+  const blob = new Blob([arr], { type: 'image/jpeg' });
+  const file = new File([blob], 'upload.jpg', { type: 'image/jpeg' });
 
   // Step 1 — get short-lived upload token
   const tokenRes = await fetch('https://rest.alpha.fal.ai/storage/auth/token?storage_type=fal-cdn-v3', {
@@ -1647,16 +1660,17 @@ async function falUploadImage(dataUrl) {
   const tokenData = await tokenRes.json();
   if (!tokenData.token || !tokenData.base_url) throw new Error('FAL storage token failed: ' + JSON.stringify(tokenData));
 
-  // Step 2 — upload file
+  // Step 2 — upload
   const form = new FormData(); form.append('file', file);
   const upRes = await fetch(`${tokenData.base_url}/files/upload`, {
     method: 'POST',
     headers: { 'Authorization': 'Bearer ' + tokenData.token },
     body: form
   });
+  if (!upRes.ok) throw new Error(`FAL upload HTTP ${upRes.status}: ` + await upRes.text());
   const upData = await upRes.json();
   const url = upData.access_url || upData.url;
-  if (!url) throw new Error('FAL upload failed: ' + JSON.stringify(upData));
+  if (!url) throw new Error('FAL upload returned no URL: ' + JSON.stringify(upData));
   return url;
 }
 
@@ -1700,13 +1714,22 @@ async function falQueue(model, body, btnId, label) {
     let data;
     try {
       const res = await fetch(resultUrl, { headers: authOnly });
-      // 404 / non-200 = job not ready yet, keep waiting
+      // 4xx = real error (validation failure, bad input etc) — surface it immediately
+      if (res.status >= 400 && res.status < 500) {
+        let errData; try { errData = await res.json(); } catch(_) { errData = {}; }
+        const reason = errData.detail || errData.error || errData.message || `HTTP ${res.status}`;
+        const msg = Array.isArray(reason) ? reason.map(r => r.msg || JSON.stringify(r)).join('; ') : String(reason);
+        throw new Error(msg);
+      }
+      // 5xx / network errors = transient, keep waiting
       if (!res.ok) {
-        if (btn) btn.innerHTML = `<div class="spin"></div> ${label} · processing...`;
+        if (btn) btn.innerHTML = `<div class="spin"></div> ${label} · retrying...`;
         continue;
       }
       data = await res.json();
-    } catch (_) {
+    } catch (e) {
+      // Re-throw real errors, swallow only network/5xx transients
+      if (e.message && !e.message.includes('fetch')) throw e;
       if (btn) btn.innerHTML = `<div class="spin"></div> ${label} · processing...`;
       continue;
     }
