@@ -1890,7 +1890,7 @@ async function doI2V() {
         { image_url: urls[0], prompt, duration: dur, aspect_ratio: ratio }, 'i2v-btn', 'Animating');
     } else {
       data = await falQueue(`fal-ai/kling-video/v1.6/standard/elements`,
-        { image_urls: urls.slice(0, 4), prompt, duration: dur, aspect_ratio: ratio }, 'i2v-btn', 'Animating');
+        { input_image_urls: urls.slice(0, 4), prompt, duration: dur, aspect_ratio: ratio }, 'i2v-btn', 'Animating');
     }
     const url = data.video?.url; if (!url) throw new Error('No video URL — ' + JSON.stringify(data));
     res.style.display = 'block';
