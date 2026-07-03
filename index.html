@@ -564,7 +564,15 @@ select.inp{cursor:pointer;appearance:none;background-image:url("data:image/svg+x
     </div>
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px" class="sec">
       <div><label class="lbl">Duration</label><select id="pvid-dur" class="inp"><option value="5">5 sec</option><option value="10" selected>10 sec</option></select></div>
-      <div><label class="lbl">Quality</label><select id="pvid-mode" class="inp"><option value="standard">Standard</option><option value="pro">Pro</option></select></div>
+      <div><label class="lbl">Model</label><select id="pvid-model" class="inp">
+        <option value="kling-1.6-std">Kling 1.6 Standard</option>
+        <option value="kling-1.6-pro" selected>Kling 1.6 Pro</option>
+        <option value="kling-2-std">Kling 2.0 Standard</option>
+        <option value="kling-2-pro">Kling 2.0 Pro</option>
+        <option value="hailuo">Hailuo MiniMax</option>
+        <option value="wan">Wan 2.1</option>
+        <option value="luma">Luma Dream Machine</option>
+      </select></div>
     </div>
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px" class="sec">
       <div><label class="lbl">Aspect Ratio</label><select id="pvid-ratio" class="inp"><option value="9:16" selected>9:16 Portrait</option><option value="16:9">16:9 Landscape</option><option value="1:1">1:1 Square</option></select></div>
@@ -601,7 +609,14 @@ select.inp{cursor:pointer;appearance:none;background-image:url("data:image/svg+x
     <div class="sec"><label class="lbl">Motion Prompt</label><textarea id="i2v-prompt" class="inp" rows="3" placeholder="slowly turns head, hair flowing in wind..."></textarea></div>
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px" class="sec">
       <div><label class="lbl">Duration</label><select id="i2v-dur" class="inp"><option value="5">5 seconds</option><option value="10" selected>10 seconds</option></select></div>
-      <div><label class="lbl">Quality</label><select id="i2v-mode" class="inp"><option value="standard">Standard</option><option value="pro">Pro</option></select></div>
+      <div><label class="lbl">Model</label><select id="i2v-model" class="inp">
+        <option value="kling-1.6-std">Kling 1.6 Standard</option>
+        <option value="kling-1.6-pro" selected>Kling 1.6 Pro</option>
+        <option value="kling-2-std">Kling 2.0 Standard</option>
+        <option value="kling-2-pro">Kling 2.0 Pro</option>
+        <option value="hailuo">Hailuo MiniMax</option>
+        <option value="wan">Wan 2.1</option>
+      </select></div>
     </div>
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px" class="sec">
       <div><label class="lbl">Aspect Ratio</label><select id="i2v-ratio" class="inp"><option value="9:16" selected>9:16 Portrait</option><option value="16:9">16:9 Landscape</option><option value="1:1">1:1 Square</option></select></div>
@@ -1834,29 +1849,27 @@ async function doImage() {
 async function doPVid() {
   const prompt = document.getElementById('pvid-prompt').value.trim();
   if (!prompt) { alert('Enter a prompt'); return; }
+  const modelKey = document.getElementById('pvid-model').value;
+  const cfg = P2V_MODELS[modelKey] || P2V_MODELS['kling-1.6-pro'];
   const dur  = document.getElementById('pvid-dur').value;
-  const mode = document.getElementById('pvid-mode').value;
-  const cost = mode === 'pro' ? (dur === '5' ? '$0.56' : '$1.12') : (dur === '5' ? '$0.28' : '$0.56');
-  const ok = confirm(`This will use ~${cost} of your FAL credits.\n\n${dur}s · ${mode} quality${pvidSrcs.length ? ' · ' + pvidSrcs.length + ' ref image' + (pvidSrcs.length>1?'s':'') : ''}\n\nContinue?`);
-  if (!ok) return;
-  const btn = document.getElementById('pvid-btn'); const err = document.getElementById('pvid-err'); const res = document.getElementById('pvid-res');
-  btn.disabled = true; btn.innerHTML = '<div class="spin"></div> Submitting...'; err.style.display = 'none'; res.style.display = 'none';
+  const btn  = document.getElementById('pvid-btn');
+  const err  = document.getElementById('pvid-err');
+  const res  = document.getElementById('pvid-res');
+  btn.disabled = true; err.style.display = 'none'; res.style.display = 'none';
   let wakeLock = null; try { wakeLock = await navigator.wakeLock?.request('screen'); } catch(_) {}
   try {
-    const params = { prompt, duration: dur, aspect_ratio: document.getElementById('pvid-ratio').value };
+    const params = { prompt, aspect_ratio: document.getElementById('pvid-ratio').value };
+    if (cfg.dur) params.duration = dur;
     if (pvidSrcs.length) {
-      btn.innerHTML = '<div class="spin"></div> Uploading refs...';
+      btn.innerHTML = '<div class="spin"></div> Converting refs...';
       const refUrls = await Promise.all(pvidSrcs.map(src => toPublicUrl(src)));
-      // Kling accepts image_url as a single style reference; use first image as primary
       params.image_url = refUrls[0];
       if (refUrls.length > 1) params.tail_image_url = refUrls[refUrls.length - 1];
-      btn.innerHTML = '<div class="spin"></div> Submitting...';
     }
-    const data = await falQueue(`fal-ai/kling-video/v1.6/${mode}/text-to-video`, params, 'pvid-btn', 'Generating');
-    const url = data.video?.url; if (!url) throw new Error('No video URL — response: ' + JSON.stringify(data));
-    res.style.display = 'block';
-    await loadVideoEl('pvid-out', url, err);
-    saveLib('video', url, prompt); showSaveToast();
+    const data = await falQueue(cfg.id, params, 'pvid-btn', 'Generating');
+    const url = data?.video?.url || data?.url;
+    if (!url) throw new Error('No video URL returned: ' + JSON.stringify(data));
+    showVideoResult('pvid-out', url, res, err, prompt);
   } catch(e) { err.textContent = e.message; err.style.display = 'block'; }
   btn.disabled = false; btn.innerHTML = 'Generate Video';
   try { wakeLock?.release(); } catch(_) {}
@@ -1867,32 +1880,77 @@ function pickSample(el, url, prefix) {
   if (prefix === 'i2v') { i2vSrc = url; const p = document.getElementById('i2v-prev'); p.src = url; p.style.display = 'block'; document.getElementById('i2v-ph').style.display = 'none'; }
 }
 function i2vPickFile(inp) { i2vPickFiles(inp); } // legacy alias
+const I2V_MODELS = {
+  'kling-1.6-std': { id: 'fal-ai/kling-video/v1.6/standard/image-to-video',  multi: 'fal-ai/kling-video/v1.6/standard/elements', dur: true },
+  'kling-1.6-pro': { id: 'fal-ai/kling-video/v1.6/pro/image-to-video',       multi: 'fal-ai/kling-video/v1.6/standard/elements', dur: true },
+  'kling-2-std':   { id: 'fal-ai/kling-video/v2/standard/image-to-video',    multi: null,                                         dur: true },
+  'kling-2-pro':   { id: 'fal-ai/kling-video/v2/pro/image-to-video',         multi: null,                                         dur: true },
+  'hailuo':        { id: 'fal-ai/minimax-video/image-to-video',               multi: null,                                         dur: false },
+  'wan':           { id: 'fal-ai/wan-i2v',                                    multi: null,                                         dur: false },
+};
+
+const P2V_MODELS = {
+  'kling-1.6-std': { id: 'fal-ai/kling-video/v1.6/standard/text-to-video', dur: true },
+  'kling-1.6-pro': { id: 'fal-ai/kling-video/v1.6/pro/text-to-video',      dur: true },
+  'kling-2-std':   { id: 'fal-ai/kling-video/v2/standard/text-to-video',   dur: true },
+  'kling-2-pro':   { id: 'fal-ai/kling-video/v2/pro/text-to-video',        dur: true },
+  'hailuo':        { id: 'fal-ai/minimax-video/text-to-video',              dur: false },
+  'wan':           { id: 'fal-ai/wan-t2v',                                  dur: false },
+  'luma':          { id: 'fal-ai/luma-dream-machine/text-to-video',         dur: false },
+};
+
+function showVideoResult(elId, url, resEl, errEl, prompt) {
+  const el = document.getElementById(elId);
+  // Always show download link immediately — don't rely on inline playback
+  const dlHtml = `<div style="margin-top:8px;text-align:center"><a href="${url}" target="_blank" download style="color:var(--acc);font-weight:600;font-size:15px;text-decoration:underline">⬇ Open & Download Video</a></div>`;
+  resEl.style.display = 'block';
+  el.src = url;
+  el.load();
+  // Append download link after the res wrapper
+  const existing = resEl.querySelector('.video-dl-link');
+  if (existing) existing.remove();
+  const dlDiv = document.createElement('div');
+  dlDiv.className = 'video-dl-link';
+  dlDiv.innerHTML = dlHtml;
+  resEl.appendChild(dlDiv);
+  saveLib('video', url, prompt);
+  showSaveToast();
+}
+
 async function doI2V() {
   if (!i2vSrcs.length) { alert('Add at least one image'); return; }
+  const modelKey = document.getElementById('i2v-model').value;
+  const cfg = I2V_MODELS[modelKey] || I2V_MODELS['kling-1.6-pro'];
   const dur  = document.getElementById('i2v-dur').value;
-  const mode = document.getElementById('i2v-mode').value;
-  const cost = mode === 'pro' ? (dur === '5' ? '$0.56' : '$1.12') : (dur === '5' ? '$0.28' : '$0.56');
-  if (!confirm(`This will use ~${cost} of your FAL credits.\n\n${i2vSrcs.length} image${i2vSrcs.length>1?'s':''} · ${dur}s · ${mode}\n\nContinue?`)) return;
-  const btn = document.getElementById('i2v-btn'); const err = document.getElementById('i2v-err'); const res = document.getElementById('i2v-res');
-  btn.disabled = true; btn.innerHTML = '<div class="spin"></div> Uploading...'; err.style.display = 'none'; res.style.display = 'none';
+  const btn  = document.getElementById('i2v-btn');
+  const err  = document.getElementById('i2v-err');
+  const res  = document.getElementById('i2v-res');
+  const prompt = document.getElementById('i2v-prompt').value;
+  const ratio  = document.getElementById('i2v-ratio').value;
+  btn.disabled = true; err.style.display = 'none'; res.style.display = 'none';
   let wakeLock = null; try { wakeLock = await navigator.wakeLock?.request('screen'); } catch(_) {}
   try {
+    btn.innerHTML = '<div class="spin"></div> Converting images...';
     const urls = await Promise.all(i2vSrcs.map(src => toPublicUrl(src)));
     btn.innerHTML = '<div class="spin"></div> Submitting...';
     let data;
-    const prompt = document.getElementById('i2v-prompt').value;
-    const ratio  = document.getElementById('i2v-ratio').value;
     if (urls.length === 1) {
-      data = await falQueue(`fal-ai/kling-video/v1.6/${mode}/image-to-video`,
-        { image_url: urls[0], prompt, duration: dur, aspect_ratio: ratio }, 'i2v-btn', 'Animating');
+      const body = { image_url: urls[0], prompt, aspect_ratio: ratio };
+      if (cfg.dur) body.duration = dur;
+      data = await falQueue(cfg.id, body, 'i2v-btn', 'Animating');
+    } else if (cfg.multi) {
+      const body = { input_image_urls: urls.slice(0, 4), prompt, aspect_ratio: ratio };
+      if (cfg.dur) body.duration = dur;
+      data = await falQueue(cfg.multi, body, 'i2v-btn', 'Animating');
     } else {
-      data = await falQueue(`fal-ai/kling-video/v1.6/standard/elements`,
-        { input_image_urls: urls.slice(0, 4), prompt, duration: dur, aspect_ratio: ratio }, 'i2v-btn', 'Animating');
+      // Model doesn't support multi — use first image
+      const body = { image_url: urls[0], prompt, aspect_ratio: ratio };
+      if (cfg.dur) body.duration = dur;
+      data = await falQueue(cfg.id, body, 'i2v-btn', 'Animating');
     }
-    const url = data.video?.url; if (!url) throw new Error('No video URL — ' + JSON.stringify(data));
-    res.style.display = 'block';
-    await loadVideoEl('i2v-out', url, err);
-    saveLib('video', url, prompt); showSaveToast();
+    const url = data?.video?.url || data?.url;
+    if (!url) throw new Error('No video URL returned: ' + JSON.stringify(data));
+    showVideoResult('i2v-out', url, res, err, prompt);
   } catch(e) { err.textContent = e.message; err.style.display = 'block'; }
   btn.disabled = false; btn.innerHTML = 'Animate';
   try { wakeLock?.release(); } catch(_) {}
