@@ -1639,7 +1639,8 @@ async function falUploadImage(dataUrl) {
   // Step 1 — get short-lived upload token
   const tokenRes = await fetch('https://rest.alpha.fal.ai/storage/auth/token?storage_type=fal-cdn-v3', {
     method: 'POST',
-    headers: { 'Authorization': 'Key ' + keys.fal }
+    headers: { 'Authorization': 'Key ' + keys.fal, 'Content-Type': 'application/json' },
+    body: JSON.stringify({})
   });
   const tokenData = await tokenRes.json();
   if (!tokenData.token || !tokenData.base_url) throw new Error('FAL storage token failed: ' + JSON.stringify(tokenData));
