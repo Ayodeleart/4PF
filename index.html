@@ -1653,87 +1653,79 @@ async function falUploadImage(dataUrl) { return toPublicUrl(dataUrl); }
 async function falQueue(model, body, btnId, label) {
   const keys = getKeys();
   if (!keys.fal) throw new Error('Add your FAL.ai key in Profile > API Keys');
-  const authOnly = { 'Authorization': 'Key ' + keys.fal };
-  const postHdr  = { 'Authorization': 'Key ' + keys.fal, 'Content-Type': 'application/json' };
+  const authHdr  = { 'Authorization': 'Key ' + keys.fal };
+  const jsonHdr  = { 'Authorization': 'Key ' + keys.fal, 'Content-Type': 'application/json' };
   const btn = document.getElementById(btnId);
+  const base = 'https://queue.fal.run/';
+
+  const setBtn = txt => { if (btn) btn.innerHTML = txt; };
 
   // ── 1. SUBMIT ──
-  const sub     = await fetch(FAL_Q + model, { method: 'POST', headers: postHdr, body: JSON.stringify(body) });
-  const subData = await sub.json();
+  setBtn(`<div class="spin"></div> Submitting...`);
+  const subRes  = await fetch(base + model, { method: 'POST', headers: jsonHdr, body: JSON.stringify(body) });
+  const subData = await subRes.json();
   if (!subData.request_id) {
     let msg = subData.detail || subData.error || subData.message || JSON.stringify(subData);
     if (Array.isArray(msg)) msg = msg.map(m => m.msg || JSON.stringify(m)).join('; ');
     throw new Error(String(msg));
   }
   const { request_id } = subData;
-  // FAL gives us the exact result URL in the submission response — use it if available
-  const resultUrl = subData.response_url || `${FAL_Q}${model}/requests/${request_id}`;
+  const statusUrl = `${base}${model}/requests/${request_id}/status?logs=1`;
+  const resultUrl = `${base}${model}/requests/${request_id}`;
 
-  // ── 2. POLL THE RESULT ENDPOINT DIRECTLY ──
-  // We poll /requests/{id} (not /status) because:
-  // - It returns status info while the job is running
-  // - It returns the actual result when complete
-  // - The /status endpoint can return 404 after the job completes and leaves the queue,
-  //   causing the app to loop forever even though the video is ready
+  // ── 2. POLL STATUS ──
+  const start = Date.now();
+  const elapsed = () => {
+    const s = Math.floor((Date.now() - start) / 1000);
+    return s < 60 ? `${s}s` : `${Math.floor(s/60)}m ${s%60}s`;
+  };
+
   let pollCount = 0;
-  while (pollCount < 300) {  // 300 × 8s = 40 min max
-    await new Promise(r => setTimeout(r, 8000));
+  while (pollCount < 360) { // 360 × 5s = 30 min max
+    await new Promise(r => setTimeout(r, pollCount < 6 ? 3000 : 5000)); // faster at start
     pollCount++;
 
-    let data;
+    let status;
     try {
-      const res = await fetch(resultUrl, { headers: authOnly });
-      // 4xx = real error (validation failure, bad input etc) — surface it immediately
-      if (res.status >= 400 && res.status < 500) {
-        let errData; try { errData = await res.json(); } catch(_) { errData = {}; }
-        const reason = errData.detail || errData.error || errData.message || `HTTP ${res.status}`;
-        const msg = Array.isArray(reason) ? reason.map(r => r.msg || JSON.stringify(r)).join('; ') : String(reason);
-        throw new Error(msg);
-      }
-      // 5xx / network errors = transient, keep waiting
-      if (!res.ok) {
-        if (btn) btn.innerHTML = `<div class="spin"></div> ${label} · retrying...`;
-        continue;
-      }
-      data = await res.json();
-    } catch (e) {
-      // Re-throw real errors, swallow only network/5xx transients
-      if (e.message && !e.message.includes('fetch')) throw e;
-      if (btn) btn.innerHTML = `<div class="spin"></div> ${label} · processing...`;
-      continue;
-    }
+      const res = await fetch(statusUrl, { headers: authHdr });
+      if (!res.ok) { setBtn(`<div class="spin"></div> ${label} · ${elapsed()}`); continue; }
+      status = await res.json();
+    } catch(_) { setBtn(`<div class="spin"></div> ${label} · ${elapsed()}`); continue; }
 
-    // Unwrap FAL's envelope shapes: {data:{...}}, {output:{...}}, or direct
-    const output = data.data ?? data.output ?? data;
-
-    // ── Job failed ──
-    if (data.status === 'FAILED' || output.error) {
-      const reason = output.error || data.error || data.detail || 'Generation failed';
+    if (status.status === 'FAILED') {
+      const reason = status.error || status.detail || 'Generation failed';
       throw new Error(typeof reason === 'string' ? reason : JSON.stringify(reason));
     }
 
-    // ── Still in queue / processing ──
-    if (data.status === 'IN_QUEUE' || data.status === 'IN_PROGRESS') {
-      const pos = data.queue_position != null ? ` (queue #${data.queue_position})` : '';
-      if (btn) btn.innerHTML = `<div class="spin"></div> ${label}${pos}`;
+    if (status.status === 'IN_QUEUE') {
+      const pos = status.queue_position != null ? ` · queue #${status.queue_position}` : '';
+      setBtn(`<div class="spin"></div> Queued${pos} · ${elapsed()}`);
       continue;
     }
 
-    // ── Has a result — check for video or image URL ──
-    if (output.video?.url || output.images?.[0]?.url || output.image?.url) {
-      return output;
+    if (status.status === 'IN_PROGRESS') {
+      // Show latest log line if available
+      const logs = status.logs || [];
+      const lastLog = logs.length ? logs[logs.length - 1].message : '';
+      const logSnip = lastLog ? ` · ${lastLog.slice(0, 40)}` : '';
+      setBtn(`<div class="spin"></div> ${label}${logSnip} · ${elapsed()}`);
+      continue;
     }
 
-    // ── COMPLETED status with no embedded output — shouldn't happen but handle it ──
-    if (data.status === 'COMPLETED') {
-      return output; // return whatever we have, let caller handle it
-    }
+    if (status.status === 'COMPLETED') break;
 
-    // Still waiting
-    if (btn) btn.innerHTML = `<div class="spin"></div> ${label} · processing...`;
+    setBtn(`<div class="spin"></div> ${label} · ${elapsed()}`);
   }
 
-  throw new Error('Timed out. Your video is likely ready — check your FAL dashboard at fal.ai');
+  // ── 3. FETCH RESULT ──
+  const resRes = await fetch(resultUrl, { headers: authHdr });
+  if (!resRes.ok) {
+    const errData = await resRes.json().catch(() => ({}));
+    throw new Error(errData.detail || errData.error || `Result fetch failed (${resRes.status})`);
+  }
+  const result = await resRes.json();
+  // Unwrap fal envelope
+  return result.data ?? result.output ?? result;
 }
 
 // ── FAL DIRECT RUN (synchronous — for images, returns result immediately, no polling) ──
