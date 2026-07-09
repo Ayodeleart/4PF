@@ -88,6 +88,8 @@ select.inp{cursor:pointer;appearance:none;background-image:url("data:image/svg+x
 
 /* ── BUTTONS ── */
 .btn{background:var(--txt);border:none;border-radius:13px;padding:15px 20px;color:var(--bg);font-weight:700;font-size:15px;cursor:pointer;width:100%;display:flex;align-items:center;justify-content:center;gap:8px;transition:all .18s;letter-spacing:.01em}
+.i2i-tab{background:var(--s2);border:1px solid var(--bdr);color:var(--txt2);border-radius:10px;padding:9px 4px;font-size:12px;cursor:pointer;transition:all .2s;line-height:1.3}
+.i2i-tab.on{background:var(--acc);color:#fff;border-color:var(--acc)}
 .btn:disabled{opacity:.4;cursor:not-allowed}
 .btn:not(:disabled):active{opacity:.85}
 .btn-ghost{background:transparent;border:1px solid var(--bdr2);border-radius:12px;padding:12px 16px;color:var(--txt);font-size:14px;cursor:pointer;font-weight:500;transition:all .2s;width:100%;display:flex;align-items:center;justify-content:center;gap:6px}
@@ -744,39 +746,175 @@ select.inp{cursor:pointer;appearance:none;background-image:url("data:image/svg+x
     <span class="hdr-title">Image to Image</span>
   </div>
   <div class="pscroll">
-    <div style="background:var(--s1);border:1px solid var(--bdr);border-radius:12px;padding:12px 14px;margin-bottom:16px;font-size:13px;color:var(--txt2);line-height:1.6">
-      Upload a <strong style="color:var(--txt)">reference image</strong> (the style or pose to copy) and a <strong style="color:var(--txt)">target image</strong> (the subject to transform).
+
+    <!-- MODE TABS -->
+    <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:6px;margin-bottom:18px">
+      <button class="i2i-tab on" data-tab="tryon" onclick="switchI2ITab(this)">👗 Try On</button>
+      <button class="i2i-tab" data-tab="pose" onclick="switchI2ITab(this)">🕺 Pose</button>
+      <button class="i2i-tab" data-tab="style" onclick="switchI2ITab(this)">🎨 Style</button>
+      <button class="i2i-tab" data-tab="face" onclick="switchI2ITab(this)">🫧 Face</button>
     </div>
-    <div class="sec">
-      <label class="lbl">Reference Image <span style="color:var(--txt3);font-weight:400">(style / pose to copy)</span></label>
-      <input type="file" id="ref-file" accept="image/*" hidden onchange="refPickFile(this)">
-      <div class="upload-box" onclick="document.getElementById('ref-file').click()">
-        <img id="ref-prev" style="width:100%;max-height:180px;object-fit:cover;display:none" alt="">
-        <div class="uph" id="ref-ph"><svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="var(--txt3)" stroke-width="1.5" stroke-linecap="round"><rect x="2" y="7" width="14" height="14" rx="2"/><path d="M16 7V5a2 2 0 00-2-2H5a2 2 0 00-2 2v9a2 2 0 002 2h2"/></svg><span style="font-size:14px">Upload reference image</span></div>
+
+    <!-- ══ TRY ON ══ -->
+    <div id="i2i-panel-tryon">
+      <div style="background:var(--s1);border:1px solid var(--bdr);border-radius:10px;padding:10px 12px;margin-bottom:14px;font-size:12px;color:var(--txt2);line-height:1.6">
+        <b style="color:var(--txt)">Slots:</b> Your Photo · Clothing · (optional) Pose Reference<br>
+        With a pose reference the app auto-chains: dress→pose→face in one tap.
+      </div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px" class="sec">
+        <div>
+          <label class="lbl" style="font-size:11px">YOUR PHOTO</label>
+          <input type="file" id="tryon-person-file" accept="image/*" hidden onchange="tryonPickFile(this,'tryon-person-prev','tryon-person-ph','tryonPersonSrc')">
+          <div class="upload-box" style="min-height:130px" onclick="document.getElementById('tryon-person-file').click()">
+            <img id="tryon-person-prev" style="width:100%;height:130px;object-fit:cover;display:none;border-radius:8px" alt="">
+            <div class="uph" id="tryon-person-ph" style="height:130px"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="var(--txt3)" stroke-width="1.5" stroke-linecap="round"><circle cx="12" cy="8" r="4"/><path d="M4 20c0-4 3.6-7 8-7s8 3 8 7"/></svg><span style="font-size:12px">Your photo</span></div>
+          </div>
+        </div>
+        <div>
+          <label class="lbl" style="font-size:11px">CLOTHING</label>
+          <input type="file" id="tryon-garment-file" accept="image/*" hidden onchange="tryonPickFile(this,'tryon-garment-prev','tryon-garment-ph','tryonGarmentSrc')">
+          <div class="upload-box" style="min-height:130px" onclick="document.getElementById('tryon-garment-file').click()">
+            <img id="tryon-garment-prev" style="width:100%;height:130px;object-fit:cover;display:none;border-radius:8px" alt="">
+            <div class="uph" id="tryon-garment-ph" style="height:130px"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="var(--txt3)" stroke-width="1.5" stroke-linecap="round"><path d="M20.38 3.46L16 2a4 4 0 01-8 0L3.62 3.46a2 2 0 00-1.34 2.23l.58 3.57a1 1 0 00.99.84H6v10c0 1.1.9 2 2 2h8a2 2 0 002-2V10h2.15a1 1 0 00.99-.84l.58-3.57a2 2 0 00-1.34-2.23z"/></svg><span style="font-size:12px">Clothing photo</span></div>
+          </div>
+        </div>
+      </div>
+      <div class="sec">
+        <label class="lbl" style="font-size:11px">POSE REFERENCE <span style="color:var(--txt3);font-weight:400">(optional — auto-chains dress+pose+face)</span></label>
+        <input type="file" id="tryon-pose-file" accept="image/*" hidden onchange="tryonPickFile(this,'tryon-pose-prev','tryon-pose-ph','tryonPoseSrc')">
+        <div class="upload-box" onclick="document.getElementById('tryon-pose-file').click()">
+          <img id="tryon-pose-prev" style="width:100%;max-height:140px;object-fit:cover;display:none;border-radius:8px" alt="">
+          <div class="uph" id="tryon-pose-ph"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="var(--txt3)" stroke-width="1.5" stroke-linecap="round"><circle cx="12" cy="5" r="2"/><path d="M12 7v8m-4-5l4 2 4-2M8 18l4-3 4 3"/></svg><span style="font-size:12px">Pose reference (optional)</span></div>
+        </div>
+      </div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px" class="sec">
+        <div>
+          <label class="lbl">Clothing Type</label>
+          <select id="tryon-category" class="inp">
+            <option value="auto" selected>Auto detect</option>
+            <option value="tops">Tops</option>
+            <option value="bottoms">Bottoms</option>
+            <option value="one-pieces">Full outfit / Dress</option>
+          </select>
+        </div>
+        <div>
+          <label class="lbl">Quality</label>
+          <select id="tryon-quality" class="inp">
+            <option value="performance">Fast</option>
+            <option value="balanced" selected>Balanced</option>
+            <option value="quality">Best</option>
+          </select>
+        </div>
+      </div>
+      <div class="sec">
+        <label class="lbl">Engine</label>
+        <div style="display:flex;gap:8px;flex-wrap:wrap">
+          <button class="chip on" data-engine="fashn" onclick="pickTryonEngine(this)">FASHN v1.6 <span style="color:var(--txt3);font-size:11px">· best for prints</span></button>
+          <button class="chip" data-engine="kling" onclick="pickTryonEngine(this)">Kling Kolors <span style="color:var(--txt3);font-size:11px">· fast</span></button>
+        </div>
+      </div>
+      <div class="sec"><label class="lbl">Night Mode / Lighting Instructions <span style="color:var(--txt3);font-weight:400">(optional)</span></label>
+        <textarea id="tryon-prompt" class="inp" rows="2" placeholder="Night mode, dramatic lighting, dark moody background..."></textarea>
       </div>
     </div>
-    <div class="sec">
-      <label class="lbl">Target Image <span style="color:var(--txt3);font-weight:400">(image to transform)</span></label>
-      <input type="file" id="ref-target-file" accept="image/*" hidden onchange="refTargetPickFile(this)">
-      <div class="upload-box" onclick="document.getElementById('ref-target-file').click()">
-        <img id="ref-target-prev" style="width:100%;max-height:180px;object-fit:cover;display:none" alt="">
-        <div class="uph" id="ref-target-ph"><svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="var(--txt3)" stroke-width="1.5" stroke-linecap="round"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg><span style="font-size:14px">Upload target image</span></div>
+
+    <!-- ══ POSE CHANGE ══ -->
+    <div id="i2i-panel-pose" style="display:none">
+      <div style="background:var(--s1);border:1px solid var(--bdr);border-radius:10px;padding:10px 12px;margin-bottom:14px;font-size:12px;color:var(--txt2)">
+        Upload your photo + a pose reference. Choose whether to keep your original background.
+      </div>
+      <div class="sec">
+        <label class="lbl">Your Photo</label>
+        <input type="file" id="pose-person-file" accept="image/*" hidden onchange="tryonPickFile(this,'pose-person-prev','pose-person-ph','poseSrc')">
+        <div class="upload-box" onclick="document.getElementById('pose-person-file').click()">
+          <img id="pose-person-prev" style="width:100%;max-height:180px;object-fit:cover;display:none;border-radius:8px" alt="">
+          <div class="uph" id="pose-person-ph"><svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="var(--txt3)" stroke-width="1.5" stroke-linecap="round"><circle cx="12" cy="8" r="4"/><path d="M4 20c0-4 3.6-7 8-7s8 3 8 7"/></svg><span style="font-size:14px">Upload your photo</span></div>
+        </div>
+      </div>
+      <div class="sec">
+        <label class="lbl">Pose Reference</label>
+        <input type="file" id="pose-ref-file" accept="image/*" hidden onchange="tryonPickFile(this,'pose-ref-prev','pose-ref-ph','poseRefSrc')">
+        <div class="upload-box" onclick="document.getElementById('pose-ref-file').click()">
+          <img id="pose-ref-prev" style="width:100%;max-height:180px;object-fit:cover;display:none;border-radius:8px" alt="">
+          <div class="uph" id="pose-ref-ph"><svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="var(--txt3)" stroke-width="1.5" stroke-linecap="round"><circle cx="12" cy="5" r="2"/><path d="M12 7v8m-4-5l4 2 4-2M8 18l4-3 4 3"/></svg><span style="font-size:14px">Upload pose reference</span></div>
+        </div>
+      </div>
+      <div class="sec" style="display:flex;align-items:center;gap:12px">
+        <label style="font-size:14px;color:var(--txt2)">Keep original background</label>
+        <input type="checkbox" id="pose-keep-bg" checked style="width:18px;height:18px;accent-color:var(--acc)">
+      </div>
+      <div class="sec"><label class="lbl">Extra instructions</label>
+        <textarea id="pose-prompt" class="inp" rows="2" placeholder="Keep my face, same outfit, night mode..."></textarea>
       </div>
     </div>
-    <div class="sec">
-      <label class="lbl">What to copy</label>
-      <div style="display:flex;gap:8px;flex-wrap:wrap" id="ref-mode-chips">
-        <button class="chip on" data-mode="style" onclick="pickRefMode(this)">Style</button>
-        <button class="chip" data-mode="pose" onclick="pickRefMode(this)">Pose</button>
-        <button class="chip" data-mode="style and pose" onclick="pickRefMode(this)">Style + Pose</button>
-        <button class="chip" data-mode="lighting and color palette" onclick="pickRefMode(this)">Lighting</button>
+
+    <!-- ══ STYLE TRANSFER ══ -->
+    <div id="i2i-panel-style" style="display:none">
+      <div class="sec">
+        <label class="lbl">Reference Image <span style="color:var(--txt3);font-weight:400">(style to copy)</span></label>
+        <input type="file" id="ref-file" accept="image/*" hidden onchange="refPickFile(this)">
+        <div class="upload-box" onclick="document.getElementById('ref-file').click()">
+          <img id="ref-prev" style="width:100%;max-height:180px;object-fit:cover;display:none" alt="">
+          <div class="uph" id="ref-ph"><svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="var(--txt3)" stroke-width="1.5" stroke-linecap="round"><rect x="2" y="7" width="14" height="14" rx="2"/><path d="M16 7V5a2 2 0 00-2-2H5a2 2 0 00-2 2v9a2 2 0 002 2h2"/></svg><span style="font-size:14px">Style reference</span></div>
+        </div>
+      </div>
+      <div class="sec">
+        <label class="lbl">Target Image <span style="color:var(--txt3);font-weight:400">(image to transform)</span></label>
+        <input type="file" id="ref-target-file" accept="image/*" hidden onchange="refTargetPickFile(this)">
+        <div class="upload-box" onclick="document.getElementById('ref-target-file').click()">
+          <img id="ref-target-prev" style="width:100%;max-height:180px;object-fit:cover;display:none" alt="">
+          <div class="uph" id="ref-target-ph"><svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="var(--txt3)" stroke-width="1.5" stroke-linecap="round"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg><span style="font-size:14px">Target image</span></div>
+        </div>
+      </div>
+      <div class="sec">
+        <label class="lbl">Mode</label>
+        <div style="display:flex;gap:8px;flex-wrap:wrap" id="ref-mode-chips">
+          <button class="chip on" data-mode="style" onclick="pickRefMode(this)">Style</button>
+          <button class="chip" data-mode="face" onclick="pickRefMode(this)">Face</button>
+          <button class="chip" data-mode="pose" onclick="pickRefMode(this)">Pose</button>
+          <button class="chip" data-mode="style and pose" onclick="pickRefMode(this)">Style+Pose</button>
+          <button class="chip" data-mode="lighting and color palette" onclick="pickRefMode(this)">Lighting</button>
+        </div>
+      </div>
+      <div class="sec"><label class="lbl">Instructions</label><textarea id="ref-prompt" class="inp" rows="3" placeholder="Keep the face sharp, night mode, change background to forest..."></textarea></div>
+      <div class="sec"><label class="lbl">Strength <span id="ref-sv" style="color:var(--txt2)">0.75</span></label><input type="range" id="ref-strength" min="0.1" max="1" step="0.05" value="0.75" style="width:100%;accent-color:var(--txt)" oninput="document.getElementById('ref-sv').textContent=this.value"></div>
+    </div>
+
+    <!-- ══ FACE SWAP ══ -->
+    <div id="i2i-panel-face" style="display:none">
+      <div style="background:var(--s1);border:1px solid var(--bdr);border-radius:10px;padding:10px 12px;margin-bottom:14px;font-size:12px;color:var(--txt2)">
+        Transplant your face onto any target photo while keeping the scene, outfit, and pose intact.
+      </div>
+      <div class="sec">
+        <label class="lbl">Your Face Photo</label>
+        <input type="file" id="face-src-file" accept="image/*" hidden onchange="tryonPickFile(this,'face-src-prev','face-src-ph','faceSrcSrc')">
+        <div class="upload-box" onclick="document.getElementById('face-src-file').click()">
+          <img id="face-src-prev" style="width:100%;max-height:180px;object-fit:cover;display:none;border-radius:8px" alt="">
+          <div class="uph" id="face-src-ph"><svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="var(--txt3)" stroke-width="1.5" stroke-linecap="round"><circle cx="12" cy="8" r="4"/><path d="M4 20c0-4 3.6-7 8-7s8 3 8 7"/></svg><span style="font-size:14px">Your face photo</span></div>
+        </div>
+      </div>
+      <div class="sec">
+        <label class="lbl">Target Photo <span style="color:var(--txt3);font-weight:400">(scene / outfit / pose to keep)</span></label>
+        <input type="file" id="face-target-file" accept="image/*" hidden onchange="tryonPickFile(this,'face-target-prev','face-target-ph','faceTargetSrc')">
+        <div class="upload-box" onclick="document.getElementById('face-target-file').click()">
+          <img id="face-target-prev" style="width:100%;max-height:180px;object-fit:cover;display:none;border-radius:8px" alt="">
+          <div class="uph" id="face-target-ph"><svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="var(--txt3)" stroke-width="1.5" stroke-linecap="round"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg><span style="font-size:14px">Target photo</span></div>
+        </div>
       </div>
     </div>
-    <div class="sec"><label class="lbl">Extra instructions <span style="color:var(--txt3);font-weight:400">(optional)</span></label><textarea id="ref-prompt" class="inp" rows="3" placeholder="Keep the face sharp, change background to forest..."></textarea></div>
-    <div class="sec"><label class="lbl">Strength <span id="ref-sv" style="color:var(--txt2)">0.75</span></label><input type="range" id="ref-strength" min="0.1" max="1" step="0.05" value="0.75" style="width:100%;accent-color:var(--txt)" oninput="document.getElementById('ref-sv').textContent=this.value"></div>
-    <button class="btn" id="ref-btn" onclick="doRefImg()">Transform</button>
+
+    <!-- SHARED: Generate button + results -->
+    <button class="btn" id="ref-btn" onclick="doRefImg()" style="margin-top:18px">Generate</button>
     <div id="ref-err" class="err" style="margin-top:12px"></div>
-    <div id="ref-res" style="display:none;margin-top:12px"><div class="res-wrap"><img id="ref-out" src="" alt=""><div class="res-actions"><button class="ra" onclick="saveLib('image',document.getElementById('ref-out').src,document.getElementById('ref-prompt').value)">Save</button><button class="ra" onclick="dlFileSafe(document.getElementById('ref-out').src,'image.jpg')">Download</button></div></div></div>
+    <div id="ref-res" style="display:none;margin-top:12px">
+      <div class="res-wrap">
+        <img id="ref-out" src="" alt="">
+        <div class="res-actions">
+          <button class="ra" onclick="saveLib('image',document.getElementById('ref-out').src,'')">Save</button>
+          <button class="ra" onclick="dlFileSafe(document.getElementById('ref-out').src,'image.jpg')">Download</button>
+        </div>
+      </div>
+    </div>
   </div>
 </div>
 
@@ -1015,6 +1153,212 @@ let libItems = [], libF = 'all';
 let heroSlides = [], heroIdx = 0;
 let ttsBlob = null, mediaBase64 = null, mediaType = null;
 let i2vSrcs = [], pvidSrcs = [], refSrc = null, refTargetSrc = null, refMode = 'style';
+
+// ── I2I STATE ──
+let tryonPersonSrc = null, tryonGarmentSrc = null, tryonPoseSrc = null;
+let poseSrc = null, poseRefSrc = null;
+let faceSrcSrc = null, faceTargetSrc = null;
+let tryonEngine = 'fashn', i2iTab = 'tryon';
+
+function switchI2ITab(el) {
+  document.querySelectorAll('.i2i-tab').forEach(b => b.classList.remove('on'));
+  el.classList.add('on');
+  i2iTab = el.dataset.tab;
+  ['tryon','pose','style','face'].forEach(t => {
+    const p = document.getElementById('i2i-panel-' + t);
+    if (p) p.style.display = t === i2iTab ? '' : 'none';
+  });
+  document.getElementById('ref-err').style.display = 'none';
+  document.getElementById('ref-res').style.display = 'none';
+}
+
+function pickTryonEngine(el) {
+  document.querySelectorAll('[data-engine]').forEach(b => b.classList.remove('on'));
+  el.classList.add('on');
+  tryonEngine = el.dataset.engine;
+}
+
+function tryonPickFile(inp, prevId, phId, varName) {
+  const file = inp.files[0]; if (!file) return;
+  const reader = new FileReader();
+  reader.onload = e => {
+    window[varName] = e.target.result;
+    const prev = document.getElementById(prevId);
+    const ph   = document.getElementById(phId);
+    if (prev) { prev.src = e.target.result; prev.style.display = 'block'; }
+    if (ph)   ph.style.display = 'none';
+  };
+  reader.readAsDataURL(file);
+  inp.value = '';
+}
+
+function pickRefMode(el) {
+  document.querySelectorAll('#ref-mode-chips .chip').forEach(c => c.classList.remove('on'));
+  el.classList.add('on'); refMode = el.dataset.mode;
+}
+
+async function doRefImg() {
+  const btn = document.getElementById('ref-btn');
+  const err = document.getElementById('ref-err');
+  const res = document.getElementById('ref-res');
+  btn.disabled = true; err.style.display = 'none'; res.style.display = 'none';
+
+  try {
+    let resultUrl;
+
+    // ── TRY ON ──
+    if (i2iTab === 'tryon') {
+      if (!tryonPersonSrc) throw new Error('Upload your photo');
+      if (!tryonGarmentSrc) throw new Error('Upload the clothing photo');
+      btn.innerHTML = '<div class="spin"></div> Converting images...';
+      const [personUrl, garmentUrl] = await Promise.all([
+        toPublicUrl(tryonPersonSrc), toPublicUrl(tryonGarmentSrc)
+      ]);
+
+      // Step 1: Virtual Try-On
+      btn.innerHTML = '<div class="spin"></div> Applying clothing...';
+      let tryonResult;
+      if (tryonEngine === 'fashn') {
+        tryonResult = await falQueue('fal-ai/fashn/tryon/v1.6', {
+          model_image: personUrl,
+          garment_image: garmentUrl,
+          category: document.getElementById('tryon-category').value,
+          mode: document.getElementById('tryon-quality').value,
+          garment_photo_type: 'auto'
+        }, 'ref-btn', 'Fitting dress');
+        resultUrl = tryonResult?.image?.url || tryonResult?.images?.[0]?.url || tryonResult?.url;
+      } else {
+        tryonResult = await falQueue('fal-ai/kling/v1-5/kolors-virtual-try-on', {
+          human_image_url: personUrl,
+          garment_image_url: garmentUrl
+        }, 'ref-btn', 'Fitting dress');
+        resultUrl = tryonResult?.image?.url || tryonResult?.url;
+      }
+      if (!resultUrl) throw new Error('Try-on returned no image: ' + JSON.stringify(tryonResult));
+
+      // Step 2 (optional): Apply pose reference → face swap back
+      if (tryonPoseSrc) {
+        btn.innerHTML = '<div class="spin"></div> Applying pose...';
+        const poseUrl    = await toPublicUrl(tryonPoseSrc);
+        const prompt     = document.getElementById('tryon-prompt').value ||
+          'person wearing the exact same outfit, exact same garment preserved, realistic photo';
+        // Use flux i2i with the pose photo as base and the dressed result as style reference
+        const poseResult = await falRun('fal-ai/flux/dev/image-to-image', {
+          image_url: poseUrl,
+          reference_image_url: resultUrl,
+          prompt,
+          strength: 0.55,
+          num_inference_steps: 28
+        });
+        const poseUrl2 = poseResult?.images?.[0]?.url;
+        if (poseUrl2) {
+          // Step 3: Face swap person's face back onto pose result
+          btn.innerHTML = '<div class="spin"></div> Restoring face...';
+          const faceResult = await falRun('fal-ai/ip-adapter-face-id', {
+            face_image_url: personUrl,
+            image_url: poseUrl2,
+            prompt: 'realistic photo, same outfit, same scene',
+            negative_prompt: 'blurry, distorted face, low quality',
+            ip_adapter_scale: 0.82,
+            num_inference_steps: 30
+          });
+          resultUrl = faceResult?.images?.[0]?.url || poseUrl2;
+        }
+      } else if (document.getElementById('tryon-prompt').value) {
+        // Apply lighting/night mode instructions via img2img
+        btn.innerHTML = '<div class="spin"></div> Applying lighting...';
+        const litResult = await falRun('fal-ai/flux/dev/image-to-image', {
+          image_url: resultUrl,
+          prompt: document.getElementById('tryon-prompt').value + ', same outfit preserved, same person',
+          strength: 0.35,
+          num_inference_steps: 24
+        });
+        resultUrl = litResult?.images?.[0]?.url || resultUrl;
+      }
+    }
+
+    // ── POSE CHANGE ──
+    else if (i2iTab === 'pose') {
+      if (!poseSrc) throw new Error('Upload your photo');
+      if (!poseRefSrc) throw new Error('Upload a pose reference');
+      btn.innerHTML = '<div class="spin"></div> Converting images...';
+      const [personUrl, poseRefUrl] = await Promise.all([
+        toPublicUrl(poseSrc), toPublicUrl(poseRefSrc)
+      ]);
+      const keepBg   = document.getElementById('pose-keep-bg').checked;
+      const extraP   = document.getElementById('pose-prompt').value;
+      const prompt   = (extraP || 'same person, same outfit, same clothing') +
+        (keepBg ? ', exact same background, same environment' : '') +
+        ', realistic photo, high quality';
+      btn.innerHTML = '<div class="spin"></div> Changing pose...';
+      const poseResult = await falRun('fal-ai/flux/dev/image-to-image', {
+        image_url: poseRefUrl,
+        reference_image_url: personUrl,
+        prompt,
+        strength: 0.6,
+        num_inference_steps: 28
+      });
+      const midUrl = poseResult?.images?.[0]?.url;
+      if (!midUrl) throw new Error('Pose transfer failed');
+      // Face swap back
+      btn.innerHTML = '<div class="spin"></div> Restoring face...';
+      const faceR = await falRun('fal-ai/ip-adapter-face-id', {
+        face_image_url: personUrl,
+        image_url: midUrl,
+        prompt: 'realistic photo, same outfit, same scene',
+        negative_prompt: 'blurry, distorted',
+        ip_adapter_scale: 0.82,
+        num_inference_steps: 30
+      });
+      resultUrl = faceR?.images?.[0]?.url || midUrl;
+    }
+
+    // ── STYLE TRANSFER ──
+    else if (i2iTab === 'style') {
+      if (!refTargetSrc) throw new Error('Upload a target image');
+      btn.innerHTML = '<div class="spin"></div> Converting images...';
+      const targetUrl = await toPublicUrl(refTargetSrc);
+      const params    = { image_url: targetUrl, prompt: (document.getElementById('ref-prompt').value || `Apply the ${refMode}`), strength: parseFloat(document.getElementById('ref-strength').value), num_inference_steps: 28 };
+      if (refSrc) params.reference_image_url = await toPublicUrl(refSrc);
+      if (refMode === 'face' && refSrc) {
+        btn.innerHTML = '<div class="spin"></div> Swapping face...';
+        const faceR = await falRun('fal-ai/ip-adapter-face-id', { face_image_url: params.reference_image_url, image_url: targetUrl, prompt: document.getElementById('ref-prompt').value || 'realistic photo', negative_prompt: 'blurry, distorted', ip_adapter_scale: 0.85, num_inference_steps: 30 });
+        resultUrl = faceR?.images?.[0]?.url;
+      } else {
+        btn.innerHTML = '<div class="spin"></div> Transforming...';
+        const r = await falRun('fal-ai/flux/dev/image-to-image', params);
+        resultUrl = r?.images?.[0]?.url;
+      }
+    }
+
+    // ── FACE SWAP ──
+    else if (i2iTab === 'face') {
+      if (!faceSrcSrc) throw new Error('Upload your face photo');
+      if (!faceTargetSrc) throw new Error('Upload the target photo');
+      btn.innerHTML = '<div class="spin"></div> Converting images...';
+      const [faceUrl, targetUrl] = await Promise.all([
+        toPublicUrl(faceSrcSrc), toPublicUrl(faceTargetSrc)
+      ]);
+      btn.innerHTML = '<div class="spin"></div> Swapping face...';
+      const r = await falRun('fal-ai/ip-adapter-face-id', {
+        face_image_url: faceUrl, image_url: targetUrl,
+        prompt: 'realistic photo, same scene, same outfit, same pose',
+        negative_prompt: 'blurry, distorted face, low quality',
+        ip_adapter_scale: 0.85, num_inference_steps: 30
+      });
+      resultUrl = r?.images?.[0]?.url;
+    }
+
+    if (!resultUrl) throw new Error('No image returned');
+    document.getElementById('ref-out').src = resultUrl;
+    res.style.display = 'block';
+    saveLib('image', resultUrl, ''); showSaveToast();
+  } catch(e) { err.textContent = e.message; err.style.display = 'block'; }
+  btn.disabled = false; btn.innerHTML = 'Generate';
+}
+
+function refPickFile(inp) { tryonPickFile(inp, 'ref-prev', 'ref-ph', 'refSrc'); }
+function refTargetPickFile(inp) { tryonPickFile(inp, 'ref-target-prev', 'ref-target-ph', 'refTargetSrc'); }
 
 function renderImgGrid(srcs, gridId, removeHandler) {
   const grid = document.getElementById(gridId);
