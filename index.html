@@ -2313,21 +2313,6 @@ async function doI2V() {
 }
 function refPickFile(inp) { readFile(inp, r => { refSrc = r; const p = document.getElementById('ref-prev'); p.src = r; p.style.display = 'block'; document.getElementById('ref-ph').style.display = 'none'; }); }
 function pickRefMode(el) { document.querySelectorAll('#ref-mode-chips .chip').forEach(c => c.classList.remove('on')); el.classList.add('on'); refMode = el.dataset.mode; }
-async function doRefImg() {
-  if (!refSrc) { alert('Upload a reference image'); return; }
-  if (!refTargetSrc) { alert('Upload a target image'); return; }
-  const extraPrompt = document.getElementById('ref-prompt').value.trim();
-  const prompt = `Apply the ${refMode} of the first image to the subject in the second image.${extraPrompt ? ' ' + extraPrompt : ''}`;
-  const btn = document.getElementById('ref-btn'); const err = document.getElementById('ref-err'); const res = document.getElementById('ref-res');
-  btn.disabled = true; btn.innerHTML = '<div class="spin"></div> Transforming...'; err.style.display = 'none'; res.style.display = 'none';
-  try {
-    const data = await falRun('fal-ai/flux/dev/image-to-image', { image_url: refTargetSrc, prompt, strength: parseFloat(document.getElementById('ref-strength').value), num_inference_steps: 28 });
-    const url = data.images?.[0]?.url; if (!url) throw new Error('No image URL');
-    document.getElementById('ref-out').src = url; res.style.display = 'block';
-    saveLib('image', url, extraPrompt); showSaveToast();
-  } catch(e) { err.textContent = e.message; err.style.display = 'block'; }
-  btn.disabled = false; btn.innerHTML = 'Transform';
-}
 
 // ── TALKING PHOTO (HeyGen) ──
 let tpPhotoFile = null, tpAudioFile = null, tpMode = 'script', tpLibAudioUrl = null;
