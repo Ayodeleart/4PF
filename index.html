@@ -1240,12 +1240,16 @@ async function doRefImg() {
         const poseUrl    = await toPublicUrl(i2i.tryonPoseSrc);
         const prompt     = document.getElementById('tryon-prompt').value ||
           'person wearing the exact same outfit, exact same garment preserved, realistic photo';
-        // Use flux i2i with the pose photo as base and the dressed result as style reference
-        const poseResult = await falRun('fal-ai/flux/dev/image-to-image', {
-          image_url: poseUrl,
+        // flux-general supports reference_image_url (plain flux/dev does not — it silently
+        // ignores it and, combined with its NSFW safety checker, was returning blank/black
+        // images on real photos of people). Use flux-general + explicit pose control instead.
+        const poseResult = await falRun('fal-ai/flux-general/image-to-image', {
+          image_url: resultUrl,
           reference_image_url: resultUrl,
           prompt,
-          strength: 0.55,
+          strength: 0.5,
+          easycontrols: [{ control_method_url: 'pose', image_url: poseUrl, image_control_type: 'spatial', scale: 0.9 }],
+          enable_safety_checker: false,
           num_inference_steps: 28
         });
         const poseUrl2 = poseResult?.images?.[0]?.url;
@@ -1261,6 +1265,8 @@ async function doRefImg() {
             num_inference_steps: 30
           });
           resultUrl = faceResult?.images?.[0]?.url || poseUrl2;
+        } else {
+          throw new Error('Pose step returned no image: ' + JSON.stringify(poseResult));
         }
       } else if (document.getElementById('tryon-prompt').value) {
         // Apply lighting/night mode instructions via img2img
@@ -1269,6 +1275,7 @@ async function doRefImg() {
           image_url: resultUrl,
           prompt: document.getElementById('tryon-prompt').value + ', same outfit preserved, same person',
           strength: 0.35,
+          enable_safety_checker: false,
           num_inference_steps: 24
         });
         resultUrl = litResult?.images?.[0]?.url || resultUrl;
@@ -1289,16 +1296,22 @@ async function doRefImg() {
         (keepBg ? ', exact same background, same environment' : '') +
         ', realistic photo, high quality';
       btn.innerHTML = '<div class="spin"></div> Changing pose...';
-      const poseResult = await falRun('fal-ai/flux/dev/image-to-image', {
-        image_url: poseRefUrl,
-        reference_image_url: personUrl,
+      // Base image is the PERSON's own photo (preserves face/outfit/background), and the new
+      // pose is driven by a dedicated spatial pose control from the reference photo. The old
+      // version used image_url=poseRefUrl + reference_image_url on plain flux/dev/image-to-image,
+      // an endpoint that doesn't support reference_image_url at all — and its NSFW safety
+      // checker (enabled by default) was blanking the output to solid black on real photos.
+      const poseResult = await falRun('fal-ai/flux-general/image-to-image', {
+        image_url: personUrl,
         prompt,
-        strength: 0.6,
+        strength: 0.65,
+        easycontrols: [{ control_method_url: 'pose', image_url: poseRefUrl, image_control_type: 'spatial', scale: 1 }],
+        enable_safety_checker: false,
         num_inference_steps: 28
       });
       const midUrl = poseResult?.images?.[0]?.url;
-      if (!midUrl) throw new Error('Pose transfer failed');
-      // Face swap back
+      if (!midUrl) throw new Error('Pose transfer failed: ' + JSON.stringify(poseResult));
+      // Face swap back (extra safety net so the face stays consistent even at higher strength)
       btn.innerHTML = '<div class="spin"></div> Restoring face...';
       const faceR = await falRun('fal-ai/ip-adapter-face-id', {
         face_image_url: personUrl,
@@ -1316,7 +1329,7 @@ async function doRefImg() {
       if (!refTargetSrc) throw new Error('Upload a target image');
       btn.innerHTML = '<div class="spin"></div> Converting images...';
       const targetUrl = await toPublicUrl(refTargetSrc);
-      const params    = { image_url: targetUrl, prompt: (document.getElementById('ref-prompt').value || `Apply the ${refMode}`), strength: parseFloat(document.getElementById('ref-strength').value), num_inference_steps: 28 };
+      const params    = { image_url: targetUrl, prompt: (document.getElementById('ref-prompt').value || `Apply the ${refMode}`), strength: parseFloat(document.getElementById('ref-strength').value), enable_safety_checker: false, num_inference_steps: 28 };
       if (i2i.refSrc) params.reference_image_url = await toPublicUrl(i2i.refSrc);
       if (refMode === 'face' && i2i.refSrc) {
         btn.innerHTML = '<div class="spin"></div> Swapping face...';
@@ -1324,7 +1337,8 @@ async function doRefImg() {
         resultUrl = faceR?.images?.[0]?.url;
       } else {
         btn.innerHTML = '<div class="spin"></div> Transforming...';
-        const r = await falRun('fal-ai/flux/dev/image-to-image', params);
+        // flux-general (not plain flux/dev) so reference_image_url is actually honored
+        const r = await falRun('fal-ai/flux-general/image-to-image', params);
         resultUrl = r?.images?.[0]?.url;
       }
     }
@@ -2106,7 +2120,11 @@ async function falRun(model, body) {
     if (Array.isArray(msg)) msg = msg.map(m => m.msg || JSON.stringify(m)).join('; ');
     throw new Error(String(msg));
   }
-  return data.data ?? data.output ?? data;
+  const out = data.data ?? data.output ?? data;
+  if (Array.isArray(out?.has_nsfw_concepts) && out.has_nsfw_concepts.some(Boolean)) {
+    throw new Error('The model flagged this result and returned a blank image (safety filter false-positive on the photo). Try a different photo.');
+  }
+  return out;
 }
 
 // ── POLLINATIONS AI (completely free, no key needed) ──
