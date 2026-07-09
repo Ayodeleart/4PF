@@ -1155,9 +1155,7 @@ let ttsBlob = null, mediaBase64 = null, mediaType = null;
 let i2vSrcs = [], pvidSrcs = [], refSrc = null, refTargetSrc = null, refMode = 'style';
 
 // ── I2I STATE ──
-let tryonPersonSrc = null, tryonGarmentSrc = null, tryonPoseSrc = null;
-let poseSrc = null, poseRefSrc = null;
-let faceSrcSrc = null, faceTargetSrc = null;
+const i2i = { tryonPersonSrc:null, tryonGarmentSrc:null, tryonPoseSrc:null, poseSrc:null, poseRefSrc:null, faceSrcSrc:null, faceTargetSrc:null };
 let tryonEngine = 'fashn', i2iTab = 'tryon';
 
 function switchI2ITab(el) {
@@ -1182,7 +1180,7 @@ function tryonPickFile(inp, prevId, phId, varName) {
   const file = inp.files[0]; if (!file) return;
   const reader = new FileReader();
   reader.onload = e => {
-    window[varName] = e.target.result;
+    i2i[varName] = e.target.result;
     const prev = document.getElementById(prevId);
     const ph   = document.getElementById(phId);
     if (prev) { prev.src = e.target.result; prev.style.display = 'block'; }
@@ -1208,11 +1206,11 @@ async function doRefImg() {
 
     // ── TRY ON ──
     if (i2iTab === 'tryon') {
-      if (!tryonPersonSrc) throw new Error('Upload your photo');
-      if (!tryonGarmentSrc) throw new Error('Upload the clothing photo');
+      if (!i2i.tryonPersonSrc) throw new Error('Upload your photo');
+      if (!i2i.tryonGarmentSrc) throw new Error('Upload the clothing photo');
       btn.innerHTML = '<div class="spin"></div> Converting images...';
       const [personUrl, garmentUrl] = await Promise.all([
-        toPublicUrl(tryonPersonSrc), toPublicUrl(tryonGarmentSrc)
+        toPublicUrl(i2i.tryonPersonSrc), toPublicUrl(i2i.tryonGarmentSrc)
       ]);
 
       // Step 1: Virtual Try-On
@@ -1237,9 +1235,9 @@ async function doRefImg() {
       if (!resultUrl) throw new Error('Try-on returned no image: ' + JSON.stringify(tryonResult));
 
       // Step 2 (optional): Apply pose reference → face swap back
-      if (tryonPoseSrc) {
+      if (i2i.tryonPoseSrc) {
         btn.innerHTML = '<div class="spin"></div> Applying pose...';
-        const poseUrl    = await toPublicUrl(tryonPoseSrc);
+        const poseUrl    = await toPublicUrl(i2i.tryonPoseSrc);
         const prompt     = document.getElementById('tryon-prompt').value ||
           'person wearing the exact same outfit, exact same garment preserved, realistic photo';
         // Use flux i2i with the pose photo as base and the dressed result as style reference
@@ -1279,11 +1277,11 @@ async function doRefImg() {
 
     // ── POSE CHANGE ──
     else if (i2iTab === 'pose') {
-      if (!poseSrc) throw new Error('Upload your photo');
-      if (!poseRefSrc) throw new Error('Upload a pose reference');
+      if (!i2i.poseSrc) throw new Error('Upload your photo');
+      if (!i2i.poseRefSrc) throw new Error('Upload a pose reference');
       btn.innerHTML = '<div class="spin"></div> Converting images...';
       const [personUrl, poseRefUrl] = await Promise.all([
-        toPublicUrl(poseSrc), toPublicUrl(poseRefSrc)
+        toPublicUrl(i2i.poseSrc), toPublicUrl(i2i.poseRefSrc)
       ]);
       const keepBg   = document.getElementById('pose-keep-bg').checked;
       const extraP   = document.getElementById('pose-prompt').value;
@@ -1319,8 +1317,8 @@ async function doRefImg() {
       btn.innerHTML = '<div class="spin"></div> Converting images...';
       const targetUrl = await toPublicUrl(refTargetSrc);
       const params    = { image_url: targetUrl, prompt: (document.getElementById('ref-prompt').value || `Apply the ${refMode}`), strength: parseFloat(document.getElementById('ref-strength').value), num_inference_steps: 28 };
-      if (refSrc) params.reference_image_url = await toPublicUrl(refSrc);
-      if (refMode === 'face' && refSrc) {
+      if (i2i.refSrc) params.reference_image_url = await toPublicUrl(i2i.refSrc);
+      if (refMode === 'face' && i2i.refSrc) {
         btn.innerHTML = '<div class="spin"></div> Swapping face...';
         const faceR = await falRun('fal-ai/ip-adapter-face-id', { face_image_url: params.reference_image_url, image_url: targetUrl, prompt: document.getElementById('ref-prompt').value || 'realistic photo', negative_prompt: 'blurry, distorted', ip_adapter_scale: 0.85, num_inference_steps: 30 });
         resultUrl = faceR?.images?.[0]?.url;
@@ -1333,11 +1331,11 @@ async function doRefImg() {
 
     // ── FACE SWAP ──
     else if (i2iTab === 'face') {
-      if (!faceSrcSrc) throw new Error('Upload your face photo');
-      if (!faceTargetSrc) throw new Error('Upload the target photo');
+      if (!i2i.faceSrcSrc) throw new Error('Upload your face photo');
+      if (!i2i.faceTargetSrc) throw new Error('Upload the target photo');
       btn.innerHTML = '<div class="spin"></div> Converting images...';
       const [faceUrl, targetUrl] = await Promise.all([
-        toPublicUrl(faceSrcSrc), toPublicUrl(faceTargetSrc)
+        toPublicUrl(i2i.faceSrcSrc), toPublicUrl(i2i.faceTargetSrc)
       ]);
       btn.innerHTML = '<div class="spin"></div> Swapping face...';
       const r = await falRun('fal-ai/ip-adapter-face-id', {
