@@ -436,8 +436,8 @@ select.inp{cursor:pointer;appearance:none;background-image:url("data:image/svg+x
     <div class="sec">
       <label class="lbl">Provider</label>
       <select id="tts-provider" class="inp" onchange="ttsProviderChange()">
-        <option value="cartesia">Cartesia (sonic-2)</option>
         <option value="elevenlabs">ElevenLabs (turbo v2.5)</option>
+        <option value="cartesia">Cartesia (sonic-2)</option>
       </select>
     </div>
     <div class="sec">
@@ -445,7 +445,7 @@ select.inp{cursor:pointer;appearance:none;background-image:url("data:image/svg+x
       <div style="background:var(--s1);border:1px solid var(--bdr);border-radius:14px;padding:14px 16px;margin-bottom:8px">
         <p style="font-size:13px;color:var(--txt2);line-height:1.6;margin-bottom:12px">Enter a Voice ID from your provider — Cartesia at <strong style="color:var(--txt)">app.cartesia.ai</strong>, ElevenLabs at <strong style="color:var(--txt)">elevenlabs.io</strong>.</p>
         <label class="lbl">Voice ID</label>
-        <input id="tts-voice-id" class="inp" placeholder="e.g. a0e99841-438c-4a64-b679-ae501e7d6091" autocomplete="off" oninput="this.value=this.value.trim()">
+        <input id="tts-voice-id" class="inp" placeholder="e.g. a0e99841-438c-4a64-b679-ae501e7d6091" autocomplete="off" oninput="this.value=this.value.trim();localStorage.setItem('ss_tts_voice_id',this.value)">
         <div id="tts-voice-section" style="margin-top:12px">
           <label class="lbl">Preset Voices</label>
           <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px" id="voice-presets"></div>
@@ -684,7 +684,7 @@ select.inp{cursor:pointer;appearance:none;background-image:url("data:image/svg+x
         </div>
       </div>
       <div id="tp-audio-section" style="display:none">
-        <input type="file" id="tp-audio-file" accept="audio/*" hidden onchange="tpPickAudio(this)">
+        <input type="file" id="tp-audio-file" accept="audio/*,.mp3,.wav,.m4a,.aac,.ogg,.caf,.flac" hidden onchange="tpPickAudio(this)">
         <div class="upload-box" onclick="document.getElementById('tp-audio-file').click()">
           <div class="uph" id="tp-audio-ph">
             <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="var(--txt3)" stroke-width="1.5" stroke-linecap="round"><path d="M12 1a3 3 0 00-3 3v8a3 3 0 006 0V4a3 3 0 00-3-3z"/><path d="M19 10v2a7 7 0 01-14 0v-2"/><line x1="12" y1="19" x2="12" y2="23"/><line x1="8" y1="23" x2="16" y2="23"/></svg>
@@ -1637,8 +1637,10 @@ function go(screen, params = {}) {
     renderCustomVoices();
     const savedProvider = localStorage.getItem('ss_tts_provider');
     const savedVoiceId  = localStorage.getItem('ss_tts_voice_id');
-    if (savedProvider) { const el = document.getElementById('tts-provider'); if (el) { el.value = savedProvider; ttsProviderChange(); } }
-    if (savedVoiceId)  { const el = document.getElementById('tts-voice-id');  if (el) el.value = savedVoiceId; }
+    const provEl = document.getElementById('tts-provider');
+    if (provEl) provEl.value = savedProvider || 'elevenlabs';
+    ttsProviderChange();
+    if (savedVoiceId) { const el = document.getElementById('tts-voice-id'); if (el) el.value = savedVoiceId; }
   }
   if (screen === 'chat') loadSessions();
   if (screen === 'heromanage') loadHeroManage();
@@ -2733,6 +2735,7 @@ function pickPresetVoice(el) {
 
 function ttsProviderChange() {
   const p = document.getElementById('tts-provider').value;
+  localStorage.setItem('ss_tts_provider', p);
   const voiceSection = document.getElementById('tts-voice-section');
   if (voiceSection) voiceSection.style.display = p === 'elevenlabs' ? 'none' : '';
   document.getElementById('tts-voice-id').placeholder = p === 'elevenlabs'
@@ -2759,7 +2762,7 @@ async function doTts() {
       const resp = await fetch(`https://api.elevenlabs.io/v1/text-to-speech/${voiceId}`, {
         method: 'POST',
         headers: { 'xi-api-key': keys.elabs, 'Content-Type': 'application/json', 'Accept': 'audio/mpeg' },
-        body: JSON.stringify({ text, model_id: 'eleven_turbo_v2_5', voice_settings: { stability: 0.5, similarity_boost: 0.75 } })
+        body: JSON.stringify({ text, model_id: 'eleven_turbo_v2_5', voice_settings: { stability: 0.45, similarity_boost: 0.75, style: 0.3, use_speaker_boost: true } })
       });
       if (!resp.ok) { const t = await resp.text(); throw new Error(t); }
       ab = await resp.arrayBuffer();
