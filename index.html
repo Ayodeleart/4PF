@@ -725,6 +725,11 @@ select.inp{cursor:pointer;appearance:none;background-image:url("data:image/svg+x
         <button class="chip" data-val="expressive" onclick="pickChip(this,'tp-style-chips')">Expressive</button>
       </div>
     </div>
+    <div class="sec">
+      <label class="lbl">Custom Motion (optional)</label>
+      <textarea id="tp-motion-prompt" class="inp" rows="2" placeholder="e.g. nod and smile while talking, sipping coffee, lean forward and look surprised..."></textarea>
+      <div style="font-size:12px;color:var(--txt3);margin-top:4px">Describe specific movement, gestures, or expressions. Leave blank to use the Talking Style default above.</div>
+    </div>
     <button class="btn" id="tp-btn" onclick="doTalkPhoto()">🎬 Generate Talking Video</button>
     <div id="tp-err" class="err" style="margin-top:12px"></div>
     <div id="tp-res-wrap" style="display:none;margin-top:12px">
@@ -2544,18 +2549,24 @@ Continue?`)) {
 
     // Step 3 — generate video
     btn.innerHTML = '<div class="spin"></div> Generating (~30–60s)...';
-    const tpStyle = document.querySelector('#tp-style-chips .chip.on')?.dataset?.val || 'stable';
+    const tpStyle  = document.querySelector('#tp-style-chips .chip.on')?.dataset?.val || 'stable';
+    const customMotion = document.getElementById('tp-motion-prompt').value.trim();
     // 'talking_style' is not a real field on v2/video/generate (legacy name, silently ignored)
     // — the param that actually controls this on Avatar IV is 'expressiveness', which also
     // drives body motion, not just the face. Stable → low motion, minimal motion_prompt.
     // Expressive → high, with a motion_prompt that explicitly asks for gestures.
+    // A custom motion prompt always wins when provided, and forces expressiveness to 'high'
+    // since a specific motion request needs the model actually paying attention to it —
+    // 'low' expressiveness tends to suppress motion_prompt cues even when one is present.
     const character = {
       type: 'talking_photo',
       talking_photo_id: talkingPhotoId,
       use_avatar_iv_model: true,
-      expressiveness: tpStyle === 'expressive' ? 'high' : 'low'
+      expressiveness: (customMotion || tpStyle === 'expressive') ? 'high' : 'low'
     };
-    if (tpStyle === 'expressive') {
+    if (customMotion) {
+      character.motion_prompt = customMotion;
+    } else if (tpStyle === 'expressive') {
       character.motion_prompt = 'natural head and body movement, expressive hand gestures while speaking';
     }
     const genResp = await fetch('https://api.heygen.com/v2/video/generate', {
