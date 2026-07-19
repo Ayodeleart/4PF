@@ -719,6 +719,14 @@ select.inp{cursor:pointer;appearance:none;background-image:url("data:image/svg+x
       </div>
     </div>
     <div class="sec">
+      <label class="lbl">Motion Mode</label>
+      <div style="display:flex;gap:8px" id="tp-body-mode-chips">
+        <button class="chip on" data-val="standard" onclick="pickChip(this,'tp-body-mode-chips');tpUpdateCost()">Standard (cheaper)</button>
+        <button class="chip" data-val="fullbody" onclick="pickChip(this,'tp-body-mode-chips');tpUpdateCost()">Full Body (Avatar IV)</button>
+      </div>
+      <div style="font-size:12px;color:var(--txt3);margin-top:6px">Full Body only works if your photo actually shows the body — HeyGen can't animate parts that aren't in frame. It also bills at HeyGen's premium Avatar IV rate (roughly 3–4× the standard rate), not the ~$1/min shown below.</div>
+    </div>
+    <div class="sec">
       <label class="lbl">Talking Style</label>
       <div style="display:flex;gap:8px" id="tp-style-chips">
         <button class="chip on" data-val="stable" onclick="pickChip(this,'tp-style-chips')">Stable</button>
@@ -2444,9 +2452,17 @@ async function selectTpLibAudio(i) {
 
 function tpUpdateCost() {
   const res = document.getElementById('tp-res-select')?.value || document.getElementById('tp-res').value;
+  const fullBody = document.querySelector('#tp-body-mode-chips .chip.on')?.dataset?.val === 'fullbody';
   const banner = document.getElementById('tp-cost-banner');
-  if (res === '1080p') banner.innerHTML = '💳 <strong>1080p selected</strong> ≈ $4/min · billed to your HeyGen account';
-  else banner.innerHTML = '💳 <strong>720p selected</strong> ≈ $1/min · billed to your HeyGen account';
+  if (fullBody) {
+    banner.innerHTML = res === '1080p'
+      ? '💳 <strong>Full Body (Avatar IV), 1080p</strong> ≈ $4/min — HeyGen\'s premium rate · billed to your HeyGen account'
+      : '💳 <strong>Full Body (Avatar IV), 720p</strong> ≈ $3/min — HeyGen\'s premium rate · billed to your HeyGen account';
+  } else if (res === '1080p') {
+    banner.innerHTML = '💳 <strong>Standard, 1080p selected</strong> ≈ $1/min · billed to your HeyGen account';
+  } else {
+    banner.innerHTML = '💳 <strong>Standard, 720p selected</strong> ≈ $1/min · billed to your HeyGen account';
+  }
 }
 
 async function doTalkPhoto() {
@@ -2464,9 +2480,13 @@ async function doTalkPhoto() {
   if (ratioVal === '9:16') { [dim.width, dim.height] = [dim.height, dim.width]; }
   else if (ratioVal === '1:1') { dim.height = dim.width; }
 
-  const costEst = resolution === '1080p' ? '~$4/min' : '~$1/min';
+  const fullBody = document.querySelector('#tp-body-mode-chips .chip.on')?.dataset?.val === 'fullbody';
+  const costEst = fullBody
+    ? (resolution === '1080p' ? '~$4/min (Avatar IV premium)' : '~$3/min (Avatar IV premium)')
+    : '~$1/min';
   if (!confirm(`Generate Talking Photo?
 
+Mode: ${fullBody ? 'Full Body (Avatar IV)' : 'Standard'}
 Resolution: ${resolution} (${costEst})
 Billed to your HeyGen account.
 
@@ -2544,6 +2564,7 @@ Continue?`)) {
     // Step 3 — generate video
     btn.innerHTML = '<div class="spin"></div> Generating (~30–60s)...';
     const tpStyle  = document.querySelector('#tp-style-chips .chip.on')?.dataset?.val || 'stable';
+    const fullBody = document.querySelector('#tp-body-mode-chips .chip.on')?.dataset?.val === 'fullbody';
     const customMotion = document.getElementById('tp-motion-prompt').value.trim();
     // 'talking_style' is not a real field on v2/video/generate (legacy name, silently ignored)
     // — the param that actually controls this on Avatar IV is 'expressiveness', which also
@@ -2552,16 +2573,23 @@ Continue?`)) {
     // A custom motion prompt always wins when provided, and forces expressiveness to 'high'
     // since a specific motion request needs the model actually paying attention to it —
     // 'low' expressiveness tends to suppress motion_prompt cues even when one is present.
+    // use_avatar_iv_model is now opt-in (Motion Mode toggle) — HeyGen bills Avatar IV at a
+    // premium rate (~$4/min for 1080p per HeyGen's own API pricing docs, several times the
+    // base rate), and it only helps if the source photo actually shows the body. Forcing it
+    // on for every generation (as a prior fix did) was silently billing everyone at the
+    // premium rate even for plain headshots that can only ever animate the head anyway.
     const character = {
       type: 'talking_photo',
       talking_photo_id: talkingPhotoId,
-      use_avatar_iv_model: true,
       expressiveness: (customMotion || tpStyle === 'expressive') ? 'high' : 'low'
     };
+    if (fullBody) character.use_avatar_iv_model = true;
     if (customMotion) {
       character.motion_prompt = customMotion;
     } else if (tpStyle === 'expressive') {
-      character.motion_prompt = 'natural head and body movement, expressive hand gestures while speaking';
+      character.motion_prompt = fullBody
+        ? 'natural head and body movement, expressive hand gestures while speaking'
+        : 'natural head movement and facial expression while speaking';
     }
     const genResp = await fetch('https://api.heygen.com/v2/video/generate', {
       method: 'POST',
