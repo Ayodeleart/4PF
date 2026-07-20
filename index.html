@@ -118,10 +118,20 @@ select.inp{cursor:pointer;appearance:none;background-image:url("data:image/svg+x
 .chat-msgs{flex:1;overflow-y:auto;padding:12px 14px;display:flex;flex-direction:column;gap:3px}
 .msg-group{display:flex;flex-direction:column;gap:2px;margin-bottom:8px}
 .msg-group.u{align-items:flex-end}
-.msg-group.a{align-items:flex-start}
+.msg-group.a{align-items:flex-start;max-width:90%}
 .msg{max-width:78%;padding:10px 14px;font-size:15px;line-height:1.5;word-break:break-word;white-space:pre-wrap}
 .msg-group.u .msg{background:var(--txt);color:var(--bg);border-radius:20px 20px 5px 20px}
-.msg-group.a .msg{background:var(--s2);color:var(--txt);border-radius:5px 20px 20px 20px}
+.msg-group.a .msg{background:var(--s2);color:var(--txt);border-radius:5px 20px 20px 20px;max-width:100%}
+.msg-code{position:relative;background:#0d0d0d;border:1px solid var(--bdr2);border-radius:12px;margin:8px 0;overflow:hidden}
+.msg-code pre{margin:0;padding:14px;padding-top:34px;overflow-x:auto;font-family:ui-monospace,'SF Mono',Menlo,monospace;font-size:13px;line-height:1.5;color:#e8e8e8;white-space:pre-wrap;word-break:break-word}
+.msg-code-bar{position:absolute;top:0;left:0;right:0;display:flex;align-items:center;justify-content:space-between;padding:6px 10px;background:#161616;border-bottom:1px solid var(--bdr2);font-size:11px;color:var(--txt3);text-transform:uppercase;letter-spacing:.03em}
+.msg-code-copy{background:none;border:none;color:var(--txt2);font-size:11px;font-weight:600;cursor:pointer;padding:2px 6px;display:flex;align-items:center;gap:4px}
+.msg-code-copy.copied{color:var(--grn)}
+.msg-actions{display:flex;gap:4px;margin-top:4px;padding-left:2px}
+.msg-act-btn{background:none;border:none;color:var(--txt3);padding:5px;border-radius:8px;display:flex;align-items:center;justify-content:center;cursor:pointer}
+.msg-act-btn:active{background:var(--s2)}
+.msg-act-btn.on-like{color:var(--grn)}
+.msg-act-btn.on-dislike{color:#e5544c}
 .msg-sender{font-size:11px;color:var(--txt3);margin-bottom:3px;padding:0 4px}
 .msg-img{max-width:200px;border-radius:14px;display:block;margin-bottom:4px}
 @keyframes td{0%,80%,100%{transform:scale(.6);opacity:.4}40%{transform:scale(1);opacity:1}}
@@ -536,7 +546,7 @@ select.inp{cursor:pointer;appearance:none;background-image:url("data:image/svg+x
       <div class="res-wrap">
         <img id="pimg-out" src="" alt="Generated">
         <div class="res-actions">
-          <button class="ra" onclick="saveLib('image',document.getElementById('pimg-out').src,document.getElementById('pimg-prompt').value)">Save to Library</button>
+          <button class="ra" onclick="saveLibClick(this,'image',document.getElementById('pimg-out').src,document.getElementById('pimg-prompt').value)">Save to Library</button>
           <button class="ra" onclick="dlFileSafe(document.getElementById('pimg-out').src,'image.jpg')">Save to Device</button>
           <button class="ra acc" onclick="go('i2v',{src:document.getElementById('pimg-out').src})">Animate</button>
         </div>
@@ -587,7 +597,7 @@ select.inp{cursor:pointer;appearance:none;background-image:url("data:image/svg+x
       <div class="res-wrap">
         <video id="pvid-out" controls loop playsinline></video>
         <div class="res-actions">
-          <button class="ra" onclick="saveLib('video',document.getElementById('pvid-out').src,document.getElementById('pvid-prompt').value)">Save to Library</button>
+          <button class="ra" onclick="saveLibClick(this,'video',document.getElementById('pvid-out').src,document.getElementById('pvid-prompt').value)">Save to Library</button>
           <button class="ra" onclick="dlFileSafe(document.getElementById('pvid-out').src,'video.mp4')">Save to Device</button>
         </div>
       </div>
@@ -631,7 +641,7 @@ select.inp{cursor:pointer;appearance:none;background-image:url("data:image/svg+x
     </div>
     <button class="btn" id="i2v-btn" onclick="doI2V()">Animate</button>
     <div id="i2v-err" class="err" style="margin-top:12px"></div>
-    <div id="i2v-res" style="display:none;margin-top:12px"><div class="res-wrap"><video id="i2v-out" controls loop playsinline></video><div class="res-actions"><button class="ra" onclick="saveLib('video',document.getElementById('i2v-out').src,document.getElementById('i2v-prompt').value)">Save to Library</button><button class="ra" onclick="dlFileSafe(document.getElementById('i2v-out').src,'video.mp4')">Save to Device</button></div></div></div>
+    <div id="i2v-res" style="display:none;margin-top:12px"><div class="res-wrap"><video id="i2v-out" controls loop playsinline></video><div class="res-actions"><button class="ra" onclick="saveLibClick(this,'video',document.getElementById('i2v-out').src,document.getElementById('i2v-prompt').value)">Save to Library</button><button class="ra" onclick="dlFileSafe(document.getElementById('i2v-out').src,'video.mp4')">Save to Device</button></div></div></div>
   </div>
 </div>
 
@@ -744,7 +754,7 @@ select.inp{cursor:pointer;appearance:none;background-image:url("data:image/svg+x
       <div class="res-wrap">
         <video id="tp-out" controls loop playsinline style="width:100%;display:block"></video>
         <div class="res-actions">
-          <button class="ra" onclick="saveLib('video',document.getElementById('tp-out').src,'talking photo')">Save to Library</button>
+          <button class="ra" onclick="saveLibClick(this,'video',document.getElementById('tp-out').src,'talking photo')">Save to Library</button>
           <button class="ra" onclick="dlFileSafe(document.getElementById('tp-out').src,'talking-photo.mp4')">Save to Device</button>
         </div>
       </div>
@@ -923,7 +933,7 @@ select.inp{cursor:pointer;appearance:none;background-image:url("data:image/svg+x
       <div class="res-wrap">
         <img id="ref-out" src="" alt="">
         <div class="res-actions">
-          <button class="ra" onclick="saveLib('image',document.getElementById('ref-out').src,'')">Save to Library</button>
+          <button class="ra" onclick="saveLibClick(this,'image',document.getElementById('ref-out').src,'')">Save to Library</button>
           <button class="ra" onclick="dlFileSafe(document.getElementById('ref-out').src,'image.jpg')">Save to Device</button>
         </div>
       </div>
@@ -1377,7 +1387,6 @@ async function doRefImg() {
     if (!resultUrl) throw new Error('No image returned');
     document.getElementById('ref-out').src = resultUrl;
     res.style.display = 'block';
-    saveLib('image', resultUrl, ''); showSaveToast();
   } catch(e) { err.textContent = e.message; err.style.display = 'block'; }
   btn.disabled = false; btn.innerHTML = 'Generate';
 }
@@ -1900,6 +1909,62 @@ async function deleteSession(id) {
   renderSessions();
 }
 
+function renderMsgHtml(content) {
+  // Split on fenced code blocks (```lang\n...\n```) and render each as its own copiable
+  // box — this is what makes any prompt/SQL/code the AI writes easy to grab in one tap,
+  // instead of it being buried in plain paragraph text.
+  const parts = String(content).split(/```(\w*)\n?([\s\S]*?)```/g);
+  let html = '';
+  for (let i = 0; i < parts.length; i += 3) {
+    const text = parts[i];
+    if (text) html += `<span>${esc(text)}</span>`;
+    const lang = parts[i+1], code = parts[i+2];
+    if (code !== undefined) {
+      const codeId = 'code_' + Math.random().toString(36).slice(2);
+      html += `<div class="msg-code"><div class="msg-code-bar"><span>${esc(lang || 'text')}</span><button class="msg-code-copy" onclick="copyCodeBlock(this,'${codeId}')">Copy</button></div><pre id="${codeId}">${esc(code.replace(/\n$/, ''))}</pre></div>`;
+    }
+  }
+  return html || esc(content);
+}
+function copyCodeBlock(btn, id) {
+  const code = document.getElementById(id);
+  if (!code) return;
+  navigator.clipboard.writeText(code.textContent).then(() => {
+    btn.textContent = 'Copied'; btn.classList.add('copied');
+    setTimeout(() => { btn.textContent = 'Copy'; btn.classList.remove('copied'); }, 1500);
+  });
+}
+function copyMsg(btn) {
+  const bubble = btn.closest('.msg-group').querySelector('.msg');
+  const raw = bubble.dataset.raw || bubble.textContent;
+  navigator.clipboard.writeText(raw).then(() => {
+    const orig = btn.innerHTML;
+    btn.innerHTML = '✓';
+    setTimeout(() => btn.innerHTML = orig, 1200);
+  });
+}
+function reactMsg(btn, kind) {
+  const row = btn.closest('.msg-actions');
+  const like = row.querySelector('.msg-act-like'), dislike = row.querySelector('.msg-act-dislike');
+  const alreadyOn = btn.classList.contains(kind === 'like' ? 'on-like' : 'on-dislike');
+  like.classList.remove('on-like'); dislike.classList.remove('on-dislike');
+  if (!alreadyOn) btn.classList.add(kind === 'like' ? 'on-like' : 'on-dislike');
+}
+async function reloadMsg(btn) {
+  const group = btn.closest('.msg-group');
+  const idx = Array.from(document.getElementById('chat-msgs').children).indexOf(group);
+  // Walk chatHistory back to just before this assistant reply, drop it, and regenerate.
+  let assistantCount = -1;
+  const nodes = Array.from(document.getElementById('chat-msgs').children);
+  for (let i = 0; i <= idx; i++) if (nodes[i].classList.contains('a')) assistantCount++;
+  let seen = -1, cutAt = chatHistory.length;
+  for (let i = 0; i < chatHistory.length; i++) {
+    if (chatHistory[i].role === 'assistant') { seen++; if (seen === assistantCount) { cutAt = i; break; } }
+  }
+  chatHistory = chatHistory.slice(0, cutAt);
+  group.remove();
+  await generateAssistantReply();
+}
 function appendMsg(role, content, isTyping = false) {
   const msgs = document.getElementById('chat-msgs');
   const group = document.createElement('div');
@@ -1907,8 +1972,21 @@ function appendMsg(role, content, isTyping = false) {
   const bubble = document.createElement('div');
   bubble.className = 'msg';
   if (isTyping) { bubble.id = 'typing-bubble'; bubble.innerHTML = '<span class="td"></span><span class="td"></span><span class="td"></span>'; }
-  else { bubble.textContent = content; }
+  else {
+    bubble.dataset.raw = content;
+    bubble.innerHTML = renderMsgHtml(content);
+  }
   group.appendChild(bubble);
+  if (!isTyping && role === 'assistant') {
+    const actions = document.createElement('div');
+    actions.className = 'msg-actions';
+    actions.innerHTML = `
+      <button class="msg-act-btn" onclick="copyMsg(this)" title="Copy"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg></button>
+      <button class="msg-act-btn msg-act-like" onclick="reactMsg(this,'like')" title="Like"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M7 10v12M15 5.88 14 10h5.83a2 2 0 0 1 1.92 2.56l-2.33 8A2 2 0 0 1 17.5 22H4a2 2 0 0 1-2-2v-8a2 2 0 0 1 2-2h2.76a2 2 0 0 0 1.79-1.11L12 2a3.13 3.13 0 0 1 3 3.88Z"/></svg></button>
+      <button class="msg-act-btn msg-act-dislike" onclick="reactMsg(this,'dislike')" title="Dislike"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 14V2M9 18.12 10 14H4.17a2 2 0 0 1-1.92-2.56l2.33-8A2 2 0 0 1 6.5 2H20a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2h-2.76a2 2 0 0 0-1.79 1.11L12 22a3.13 3.13 0 0 1-3-3.88Z"/></svg></button>
+      <button class="msg-act-btn" onclick="reloadMsg(this)" title="Regenerate"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="1 4 1 10 7 10"/><polyline points="23 20 23 14 17 14"/><path d="M20.49 9A9 9 0 0 0 5.64 5.64L1 10m22 4-4.64 4.36A9 9 0 0 1 3.51 15"/></svg></button>`;
+    group.appendChild(actions);
+  }
   msgs.appendChild(group);
   msgs.scrollTop = msgs.scrollHeight;
   return bubble;
@@ -1936,6 +2014,49 @@ function chatModelChanged() {
   const attachBtn = document.querySelector('.chat-attach');
   // Gemini supports images, Groq does not
   if (attachBtn) attachBtn.style.opacity = model === 'gemini' ? '1' : '0.4';
+}
+
+const CHAT_FORMAT_HINT = { role: 'system', content: 'When you write something meant to be copied verbatim — an image/video generation prompt, code, SQL, JSON, or similar — always put it in a fenced code block using triple backticks so it renders as a distinct copiable block. Plain conversational text should stay outside code blocks.' };
+
+async function generateAssistantReply() {
+  const keys = getKeys();
+  const model = document.getElementById('chat-model').value;
+  const typingBubble = appendMsg('assistant', '', true);
+  try {
+    let reply;
+    if (model === 'gemini') {
+      const contents = chatHistory.map(m => {
+        const parts = [];
+        if (m._imgData) parts.push({ inline_data: { mime_type: m._imgType || 'image/jpeg', data: m._imgData } });
+        if (m.content && m.content !== '[image]') parts.push({ text: m.content });
+        if (!parts.length) parts.push({ text: m.content || '' });
+        return { role: m.role === 'assistant' ? 'model' : 'user', parts };
+      });
+      const resp = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${keys.gem}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ contents, systemInstruction: { parts: [{ text: CHAT_FORMAT_HINT.content }] }, generationConfig: { maxOutputTokens: 1024 } })
+      });
+      const data = await resp.json();
+      reply = data.candidates?.[0]?.content?.parts?.[0]?.text
+        || (data.error?.message ? 'Error: ' + data.error.message : 'No response.');
+    } else {
+      const resp = await fetch('https://api.groq.com/openai/v1/chat/completions', {
+        method: 'POST',
+        headers: { 'Authorization': 'Bearer ' + keys.groq, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ model: 'llama-3.3-70b-versatile', max_tokens: 1024, messages: [CHAT_FORMAT_HINT, ...chatHistory.map(m => ({ role: m.role, content: m.content || '' }))] })
+      });
+      const data = await resp.json();
+      reply = data.choices?.[0]?.message?.content || (data.error?.message ? 'Error: ' + data.error.message : 'No response.');
+    }
+    typingBubble.closest('.msg-group').remove();
+    appendMsg('assistant', reply);
+    chatHistory.push({ role: 'assistant', content: reply });
+    await sb.from('chat_messages').insert({ session_id: activeSession, role: 'assistant', content: reply });
+  } catch(e) {
+    typingBubble.closest('.msg-group').remove();
+    appendMsg('assistant', 'Error: ' + e.message);
+  }
 }
 
 async function sendChat() {
@@ -1971,47 +2092,7 @@ async function sendChat() {
     renderSessions();
   }
 
-  const typingBubble = appendMsg('assistant', '', true);
-  try {
-    let reply;
-
-    if (model === 'gemini') {
-      // Build Gemini contents array from history
-      const contents = chatHistory.map(m => {
-        const parts = [];
-        if (m._imgData) parts.push({ inline_data: { mime_type: m._imgType || 'image/jpeg', data: m._imgData } });
-        if (m.content && m.content !== '[image]') parts.push({ text: m.content });
-        if (!parts.length) parts.push({ text: m.content || '' });
-        return { role: m.role === 'assistant' ? 'model' : 'user', parts };
-      });
-      const resp = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${keys.gem}`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ contents, generationConfig: { maxOutputTokens: 1024 } })
-      });
-      const data = await resp.json();
-      reply = data.candidates?.[0]?.content?.parts?.[0]?.text
-        || (data.error?.message ? 'Error: ' + data.error.message : 'No response.');
-
-    } else {
-      // Groq — text only
-      const resp = await fetch('https://api.groq.com/openai/v1/chat/completions', {
-        method: 'POST',
-        headers: { 'Authorization': 'Bearer ' + keys.groq, 'Content-Type': 'application/json' },
-        body: JSON.stringify({ model: 'llama-3.3-70b-versatile', max_tokens: 1024, messages: chatHistory.map(m => ({ role: m.role, content: m.content || '' })) })
-      });
-      const data = await resp.json();
-      reply = data.choices?.[0]?.message?.content || (data.error?.message ? 'Error: ' + data.error.message : 'No response.');
-    }
-
-    typingBubble.closest('.msg-group').remove();
-    appendMsg('assistant', reply);
-    chatHistory.push({ role: 'assistant', content: reply });
-    await sb.from('chat_messages').insert({ session_id: activeSession, role: 'assistant', content: reply });
-  } catch(e) {
-    typingBubble.closest('.msg-group').remove();
-    appendMsg('assistant', 'Error: ' + e.message);
-  }
+  await generateAssistantReply();
 }
 
 // ── FAL IMAGE UPLOAD (converts base64 data URL → public FAL CDN URL for Kling) ──
@@ -2198,7 +2279,6 @@ async function doImage() {
       url = blobUrl;
       document.getElementById('pimg-out').src = blobUrl;
       res.style.display = 'block';
-      saveLib('image', remoteUrl, rawPrompt); showSaveToast();
 
     } else {
       // ── FAL: use direct fal.run (synchronous — no queue polling needed for images) ──
@@ -2219,7 +2299,6 @@ async function doImage() {
       if (!url) throw new Error('No image URL in response: ' + JSON.stringify(data));
       document.getElementById('pimg-out').src = url;
       res.style.display = 'block';
-      saveLib('image', url, rawPrompt); showSaveToast();
     }
 
   } catch(e) { err.textContent = e.message; err.style.display = 'block'; }
@@ -2640,10 +2719,28 @@ Continue?`)) {
     vid.src = videoUrl;
     vid.load();
     resWrap.style.display = 'block';
-    saveLib('video', videoUrl, 'talking photo'); showSaveToast();
   } catch(e) { err.textContent = 'Error: ' + e.message; err.style.display = 'block'; }
   btn.disabled = false; btn.innerHTML = '🎬 Generate Talking Video';
 }
+
+// ── STOP iOS DOUBLE-TAP / PINCH ZOOM ──
+// iOS ignores the viewport meta tag's user-scalable=no (accessibility override since iOS 10),
+// so the only real way to stop double-tap and pinch zoom is these gesture/touch handlers.
+// Excludes form fields so double-tap-to-select-word in text inputs still works normally.
+['gesturestart', 'gesturechange', 'gestureend'].forEach(evt => {
+  document.addEventListener(evt, e => e.preventDefault());
+});
+document.addEventListener('touchstart', e => {
+  if (e.touches.length > 1) e.preventDefault();
+}, { passive: false });
+let _lastTouchEnd = 0;
+document.addEventListener('touchend', e => {
+  const isFormField = e.target.closest('input,textarea,select,[contenteditable]');
+  if (isFormField) return;
+  const now = Date.now();
+  if (now - _lastTouchEnd <= 350) e.preventDefault();
+  _lastTouchEnd = now;
+}, { passive: false });
 
 // show custom voice id input when 'custom' selected
 document.addEventListener('DOMContentLoaded', () => {
@@ -2876,9 +2973,34 @@ function renderLibrary() {
   gal.innerHTML = html;
 }
 async function saveLib(type, url, prompt) {
-  if (!currentUser || !url) return;
-  await sb.from('library_items').insert({ id: Date.now().toString(), user_id: currentUser.id, type, url, prompt: prompt || '' });
-  if (currentScreen === 'library') loadLibrary();
+  if (!currentUser || !url) return false;
+  try {
+    const { error } = await sb.from('library_items').insert({ id: Date.now().toString(), user_id: currentUser.id, type, url, prompt: prompt || '' });
+    if (error) throw error;
+    if (currentScreen === 'library') loadLibrary();
+    return true;
+  } catch (e) {
+    console.error('saveLib failed', e);
+    return false;
+  }
+}
+async function saveLibClick(btn, type, url, prompt) {
+  // Guards against the exact bug that caused 7 duplicate library saves: no feedback on
+  // success meant people kept tapping, and nothing stopped each tap from inserting again.
+  if (!btn || btn.disabled) return;
+  if (!url) { alert('Nothing to save yet.'); return; }
+  const orig = btn.textContent;
+  btn.disabled = true;
+  btn.textContent = 'Saving...';
+  const ok = await saveLib(type, url, prompt);
+  if (ok) {
+    btn.textContent = '✓ Saved';
+    showSaveToast();
+  } else {
+    btn.textContent = orig;
+    btn.disabled = false;
+    alert('Save to Library failed — check your connection and try again.');
+  }
 }
 async function deleteLibItem(id) { await sb.from('library_items').delete().eq('id', id); libItems = libItems.filter(i => i.id !== id); renderLibrary(); }
 
@@ -2888,32 +3010,49 @@ async function saveBlobSafe(blob, name) {
     const file = new File([blob], name, { type: blob.type || 'application/octet-stream' });
     if (navigator.canShare && navigator.canShare({ files: [file] })) {
       await navigator.share({ files: [file] });
-      return;
+      return true;
     }
     const o = URL.createObjectURL(blob);
     const a = document.createElement('a'); a.href = o; a.download = name;
     document.body.appendChild(a); a.click(); document.body.removeChild(a);
     setTimeout(() => URL.revokeObjectURL(o), 1000);
+    return true;
   } catch (e) {
-    if (e && e.name === 'AbortError') return;
+    if (e && e.name === 'AbortError') return true; // user dismissed the share sheet — not a failure
+    return false;
   }
 }
 async function dlFileSafe(url, name) {
+  let ok = false;
   try {
     const r = await fetch(url);
+    if (!r.ok) throw new Error('fetch not ok');
     const b = await r.blob();
     // Web Share API with files → opens the native iOS share sheet, which includes
     // "Save Image" / "Save Video" (Photos) or "Save to Files". This is the ONLY reliable
     // way to get the real iOS save prompt from inside a standalone (home-screen) PWA —
     // <a download> either silently does nothing or forces the app out to Safari, breaking
-    // the app-like experience. Falls back to a normal blob download on browsers that
-    // don't support Web Share (desktop Chrome/Firefox etc).
-    await saveBlobSafe(b, name);
+    // the app-like experience. This whole path fails if the CDN URL (fal.ai/HeyGen/etc)
+    // doesn't send permissive CORS headers, since fetch() can't read the response at all
+    // in that case — that's the actual common failure mode here, not a bug in this function.
+    ok = await saveBlobSafe(b, name);
   } catch (e) {
-    try {
-      const a = document.createElement('a'); a.href = url; a.download = name; a.target = '_blank'; a.click();
-    } catch {}
+    ok = false;
   }
+  if (!ok) {
+    // NEVER fall back to <a target="_blank"> here — that's the exact behavior that kicks
+    // a standalone PWA out to Safari. Long-press works natively regardless of CORS because
+    // it's handled by the OS on the rendered <img>/<video> element, not a JS fetch.
+    showLongPressHint();
+  }
+}
+function showLongPressHint() {
+  const t = document.getElementById('save-toast');
+  if (!t) { alert('Couldn\'t auto-save — press and hold the image or video above, then tap "Save Image" / "Save Video".'); return; }
+  t.innerHTML = '⚠️ Auto-save blocked — press &amp; hold the media above, then tap Save';
+  t.style.maxWidth = '86vw'; t.style.whiteSpace = 'normal'; t.style.textAlign = 'center';
+  t.classList.add('show');
+  setTimeout(() => { t.classList.remove('show'); t.style.maxWidth=''; t.style.whiteSpace='nowrap'; t.innerHTML = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--grn)" stroke-width="2.5" stroke-linecap="round"><polyline points="20 6 9 17 4 12"/></svg> Saved to Library'; }, 4000);
 }
 function dlFile(url, name) { dlFileSafe(url, name); }
 function pickChip(el, group) { document.querySelectorAll('#'+group+' .chip').forEach(c => c.classList.remove('on')); el.classList.add('on'); }
