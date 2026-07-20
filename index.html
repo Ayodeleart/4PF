@@ -3023,28 +3023,26 @@ async function saveBlobSafe(blob, name) {
   }
 }
 async function dlFileSafe(url, name) {
+  if (!url) return;
+
+  // Supabase storage URLs can't be fetched cross-origin — open directly
+  // window.open on a video/image URL triggers the browser's native download/share sheet
+  if (url.includes('supabase') || url.includes('.co/storage/')) {
+    window.open(url, '_blank');
+    return;
+  }
+
   let ok = false;
   try {
     const r = await fetch(url);
     if (!r.ok) throw new Error('fetch not ok');
     const b = await r.blob();
-    // Web Share API with files → opens the native iOS share sheet, which includes
-    // "Save Image" / "Save Video" (Photos) or "Save to Files". This is the ONLY reliable
-    // way to get the real iOS save prompt from inside a standalone (home-screen) PWA —
-    // <a download> either silently does nothing or forces the app out to Safari, breaking
-    // the app-like experience. This whole path fails if the CDN URL (fal.ai/HeyGen/etc)
-    // doesn't send permissive CORS headers, since fetch() can't read the response at all
-    // in that case — that's the actual common failure mode here, not a bug in this function.
     ok = await saveBlobSafe(b, name);
   } catch (e) {
-    ok = false;
+    // fetch failed (CORS, auth, network) — fall back to window.open
+    try { window.open(url, '_blank'); ok = true; } catch(_) { ok = false; }
   }
-  if (!ok) {
-    // NEVER fall back to <a target="_blank"> here — that's the exact behavior that kicks
-    // a standalone PWA out to Safari. Long-press works natively regardless of CORS because
-    // it's handled by the OS on the rendered <img>/<video> element, not a JS fetch.
-    showLongPressHint();
-  }
+  if (!ok) showLongPressHint();
 }
 function showLongPressHint() {
   const t = document.getElementById('save-toast');
