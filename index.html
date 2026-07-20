@@ -2498,17 +2498,32 @@ Continue?`)) {
     // Step 1 — upload photo to HeyGen /v1/talking_photo → get talking_photo_id
     // NOTE: body must be the File/Blob itself, NOT an ArrayBuffer — iOS Safari's fetch
     // throws "TypeError: Load failed" on ArrayBuffer bodies for this kind of binary upload.
-    btn.innerHTML = '<div class="spin"></div> Uploading photo...';
-    const photoResp = await fetch('https://upload.heygen.com/v1/talking_photo', {
-      method: 'POST',
-      headers: { 'X-Api-Key': keys.heygen, 'Content-Type': tpPhotoFile.type || 'image/jpeg' },
-      body: tpPhotoFile
-    });
-    if (!photoResp.ok) { const t = await photoResp.text(); throw new Error('Photo upload failed: ' + t); }
-    const photoData = await photoResp.json();
-    if (photoData.code && photoData.code !== 100) throw new Error('Photo upload failed: ' + JSON.stringify(photoData));
-    const talkingPhotoId = photoData.data?.id || photoData.data?.talking_photo_id || photoData.data?.asset_id;
-    if (!talkingPhotoId) throw new Error('No photo ID returned: ' + JSON.stringify(photoData));
+    // Each upload creates a NEW permanent photo avatar on the HeyGen account — free accounts
+    // are capped at 3 total, ever. Cache the resulting ID per photo (by name+size+lastModified)
+    // so regenerating with the same photo reuses it instead of silently burning a new slot
+    // every single time "Generate" is pressed.
+    const photoCacheKey = 'ss_tp_avatar_' + tpPhotoFile.name + '_' + tpPhotoFile.size + '_' + tpPhotoFile.lastModified;
+    let talkingPhotoId = localStorage.getItem(photoCacheKey);
+    if (!talkingPhotoId) {
+      btn.innerHTML = '<div class="spin"></div> Uploading photo...';
+      const photoResp = await fetch('https://upload.heygen.com/v1/talking_photo', {
+        method: 'POST',
+        headers: { 'X-Api-Key': keys.heygen, 'Content-Type': tpPhotoFile.type || 'image/jpeg' },
+        body: tpPhotoFile
+      });
+      if (!photoResp.ok) {
+        const t = await photoResp.text();
+        if (t.includes('401028') || t.toLowerCase().includes('exceeded your limit')) {
+          throw new Error('You\'ve hit HeyGen\'s photo avatar limit (3 on the free plan). Delete an old one in your HeyGen dashboard → Avatars tab, or upgrade to Creator for unlimited slots. Once uploaded, re-using the SAME photo here from now on will reuse its avatar instead of creating a new one.');
+        }
+        throw new Error('Photo upload failed: ' + t);
+      }
+      const photoData = await photoResp.json();
+      if (photoData.code && photoData.code !== 100) throw new Error('Photo upload failed: ' + JSON.stringify(photoData));
+      talkingPhotoId = photoData.data?.id || photoData.data?.talking_photo_id || photoData.data?.asset_id;
+      if (talkingPhotoId) localStorage.setItem(photoCacheKey, talkingPhotoId);
+    }
+    if (!talkingPhotoId) throw new Error('No photo ID returned from HeyGen upload');
 
     // Step 2 — prepare voice input
     let voicePayload;
