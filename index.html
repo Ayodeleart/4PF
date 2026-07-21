@@ -278,9 +278,9 @@ select.inp{cursor:pointer;appearance:none;background-image:url("data:image/svg+x
 <body>
 <!-- Video fullscreen modal -->
 <div id="vid-modal">
-  <button id="vid-modal-close" onclick="closeLibVideo()">✕</button>
+  <button id="vid-modal-close" onclick="closeLibVideo()">Close</button>
   <video id="vid-modal-el" controls playsinline style="width:100%;max-height:70vh;object-fit:contain"></video>
-  <button id="vid-modal-dl" onclick="window.open(document.getElementById('vid-modal-el').src,'_blank')">⬇ Download / Save Video</button>
+  <button id="vid-modal-dl" onclick="dlFileSafe(document.getElementById('vid-modal-el').src,'video.mp4')">Save to Device</button>
 </div>
 <!-- Save toast -->
 <div id="save-toast"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--grn)" stroke-width="2.5" stroke-linecap="round"><polyline points="20 6 9 17 4 12"/></svg> Saved to Library</div>
@@ -426,7 +426,7 @@ select.inp{cursor:pointer;appearance:none;background-image:url("data:image/svg+x
     <!-- AI model switcher -->
     <select id="chat-model" class="inp" style="font-size:11px;padding:5px 8px;height:auto;width:auto;flex-shrink:0;border-radius:20px" onchange="chatModelChanged()">
       <option value="groq">Groq</option>
-      <option value="gemini">Gemini 👁</option>
+      <option value="gemini">Gemini</option>
     </select>
     <button class="ib" onclick="newChat()"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg></button>
   </div>
@@ -529,7 +529,7 @@ select.inp{cursor:pointer;appearance:none;background-image:url("data:image/svg+x
         <option value="landscape_16_9">16:9 Landscape</option>
       </select></div>
       <div><label class="lbl">Model</label><select id="pimg-model" class="inp">
-        <optgroup label="⚡ Free (No API Key)">
+        <optgroup label="Free (No API Key)">
           <option value="pollinations:flux">Pollinations FLUX (Free)</option>
           <option value="pollinations:flux-realism">Pollinations Realism (Free)</option>
           <option value="pollinations:turbo">Pollinations Turbo (Free)</option>
@@ -664,7 +664,7 @@ select.inp{cursor:pointer;appearance:none;background-image:url("data:image/svg+x
   </div>
   <div class="pscroll">
     <div id="tp-cost-banner" style="background:rgba(139,92,246,.1);border:1px solid rgba(139,92,246,.25);border-radius:12px;padding:11px 14px;margin-bottom:14px;font-size:13px;color:#c4b5fd;line-height:1.6">
-      💳 <strong>720p</strong> ≈ $1/min · <strong>1080p</strong> ≈ $4/min · billed to your HeyGen account
+      <strong>720p</strong> ≈ $1/min · <strong>1080p</strong> ≈ $4/min · billed to your HeyGen account
     </div>
     <div class="sec">
       <label class="lbl">Face Photo</label>
@@ -681,9 +681,9 @@ select.inp{cursor:pointer;appearance:none;background-image:url("data:image/svg+x
     <div class="sec">
       <label class="lbl">Voice Input</label>
       <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px" id="tp-mode-chips">
-        <button class="chip on" data-mode="script" onclick="tpSwitchMode(this)">✍️ Type Script</button>
-        <button class="chip" data-mode="audio" onclick="tpSwitchMode(this)">🎙️ Upload Audio</button>
-        <button class="chip" data-mode="library" onclick="tpSwitchMode(this)">📚 From Library</button>
+        <button class="chip on" data-mode="script" onclick="tpSwitchMode(this)">Type Script</button>
+        <button class="chip" data-mode="audio" onclick="tpSwitchMode(this)">Upload Audio</button>
+        <button class="chip" data-mode="library" onclick="tpSwitchMode(this)">From Library</button>
       </div>
       <div id="tp-script-section">
         <textarea id="tp-script" class="inp" rows="4" placeholder="Type what you want the photo to say..."></textarea>
@@ -719,7 +719,7 @@ select.inp{cursor:pointer;appearance:none;background-image:url("data:image/svg+x
         <p style="font-size:13px;color:var(--txt2);margin-bottom:10px">Pick from your Text to Speech generations</p>
         <div id="tp-lib-list" style="display:flex;flex-direction:column;gap:8px;max-height:240px;overflow-y:auto"></div>
         <div id="tp-lib-empty" style="font-size:13px;color:var(--txt3);text-align:center;padding:20px;display:none">No audio in library yet</div>
-        <div id="tp-lib-selected" style="display:none;margin-top:8px;background:rgba(68,221,170,.08);border:1px solid rgba(68,221,170,.2);border-radius:10px;padding:10px;font-size:13px;color:var(--grn)">✓ <span id="tp-lib-selected-name"></span></div>
+        <div id="tp-lib-selected" style="display:none;margin-top:8px;background:rgba(68,221,170,.08);border:1px solid rgba(68,221,170,.2);border-radius:10px;padding:10px;font-size:13px;color:var(--grn)">Selected: <span id="tp-lib-selected-name"></span></div>
       </div>
     </div>
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px" class="sec">
@@ -759,7 +759,7 @@ select.inp{cursor:pointer;appearance:none;background-image:url("data:image/svg+x
       <textarea id="tp-motion-prompt" class="inp" rows="2" placeholder="e.g. nod and smile while talking, sipping coffee, lean forward and look surprised..."></textarea>
       <div style="font-size:12px;color:var(--txt3);margin-top:4px">Describe specific movement, gestures, or expressions. Leave blank to use the Talking Style default above.</div>
     </div>
-    <button class="btn" id="tp-btn" onclick="doTalkPhoto()">🎬 Generate Talking Video</button>
+    <button class="btn" id="tp-btn" onclick="doTalkPhoto()">Generate Talking Video</button>
     <div id="tp-err" class="err" style="margin-top:12px"></div>
     <div id="tp-res-wrap" style="display:none;margin-top:12px">
       <div class="res-wrap">
@@ -783,10 +783,10 @@ select.inp{cursor:pointer;appearance:none;background-image:url("data:image/svg+x
 
     <!-- MODE TABS -->
     <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:6px;margin-bottom:18px">
-      <button class="i2i-tab on" data-tab="tryon" onclick="switchI2ITab(this)">👗 Try On</button>
-      <button class="i2i-tab" data-tab="pose" onclick="switchI2ITab(this)">🕺 Pose</button>
-      <button class="i2i-tab" data-tab="style" onclick="switchI2ITab(this)">🎨 Style</button>
-      <button class="i2i-tab" data-tab="face" onclick="switchI2ITab(this)">🫧 Face</button>
+      <button class="i2i-tab on" data-tab="tryon" onclick="switchI2ITab(this)">Try On</button>
+      <button class="i2i-tab" data-tab="pose" onclick="switchI2ITab(this)">Pose</button>
+      <button class="i2i-tab" data-tab="style" onclick="switchI2ITab(this)">Style</button>
+      <button class="i2i-tab" data-tab="face" onclick="switchI2ITab(this)">Face</button>
     </div>
 
     <!-- ══ TRY ON ══ -->
@@ -1950,7 +1950,7 @@ function copyMsg(btn) {
   const raw = bubble.dataset.raw || bubble.textContent;
   navigator.clipboard.writeText(raw).then(() => {
     const orig = btn.innerHTML;
-    btn.innerHTML = '✓';
+    btn.innerHTML = 'Copied';
     setTimeout(() => btn.innerHTML = orig, 1200);
   });
 }
@@ -2444,7 +2444,7 @@ function tpPickPhoto(inp) {
 function tpPickAudio(inp) {
   tpAudioFile = inp.files[0];
   if (!tpAudioFile) return;
-  document.getElementById('tp-audio-name').textContent = '✓ ' + tpAudioFile.name;
+  document.getElementById('tp-audio-name').textContent = 'Selected: ' + tpAudioFile.name;
   document.getElementById('tp-audio-name').style.display = 'block';
   const prev = document.getElementById('tp-audio-preview');
   prev.src = URL.createObjectURL(tpAudioFile);
@@ -2546,12 +2546,12 @@ function tpUpdateCost() {
   const banner = document.getElementById('tp-cost-banner');
   if (fullBody) {
     banner.innerHTML = res === '1080p'
-      ? '💳 <strong>Full Body (Avatar IV), 1080p</strong> ≈ $4/min — HeyGen\'s premium rate · billed to your HeyGen account'
-      : '💳 <strong>Full Body (Avatar IV), 720p</strong> ≈ $3/min — HeyGen\'s premium rate · billed to your HeyGen account';
+      ? '<strong>Full Body (Avatar IV), 1080p</strong> ≈ $4/min — HeyGen\'s premium rate · billed to your HeyGen account'
+      : '<strong>Full Body (Avatar IV), 720p</strong> ≈ $3/min — HeyGen\'s premium rate · billed to your HeyGen account';
   } else if (res === '1080p') {
-    banner.innerHTML = '💳 <strong>Standard, 1080p selected</strong> ≈ $1/min · billed to your HeyGen account';
+    banner.innerHTML = '<strong>Standard, 1080p selected</strong> ≈ $1/min · billed to your HeyGen account';
   } else {
-    banner.innerHTML = '💳 <strong>Standard, 720p selected</strong> ≈ $1/min · billed to your HeyGen account';
+    banner.innerHTML = '<strong>Standard, 720p selected</strong> ≈ $1/min · billed to your HeyGen account';
   }
 }
 
@@ -2581,7 +2581,7 @@ Resolution: ${resolution} (${costEst})
 Billed to your HeyGen account.
 
 Continue?`)) {
-    btn.disabled = false; btn.innerHTML = '🎬 Generate Talking Video'; return;
+    btn.disabled = false; btn.innerHTML = 'Generate Talking Video'; return;
   }
 
   try {
@@ -2731,7 +2731,7 @@ Continue?`)) {
     vid.load();
     resWrap.style.display = 'block';
   } catch(e) { err.textContent = 'Error: ' + e.message; err.style.display = 'block'; }
-  btn.disabled = false; btn.innerHTML = '🎬 Generate Talking Video';
+  btn.disabled = false; btn.innerHTML = 'Generate Talking Video';
 }
 
 // ── STOP iOS DOUBLE-TAP / PINCH ZOOM ──
@@ -3003,10 +3003,33 @@ function renderLibrary() {
   }).join('');
   gal.innerHTML = html;
 }
+async function rehostMedia(url, type) {
+  // fal.ai and HeyGen generated media URLs are TEMPORARY and expire (fal.ai's own docs confirm
+  // generated CDN files have a default retention window; HeyGen's video_url works the same way).
+  // Saving just that link to the library means it eventually goes dead — unplayable and
+  // impossible to long-press-save, because the actual file behind the link is gone by then.
+  // Re-host the real bytes into permanent Supabase storage so library saves actually last.
+  try {
+    const r = await fetch(url);
+    if (!r.ok) throw new Error('fetch not ok: ' + r.status);
+    const blob = await r.blob();
+    const ext = type === 'video' ? 'mp4' : type === 'audio' ? 'mp3' : 'jpg';
+    const contentType = blob.type || (type === 'video' ? 'video/mp4' : type === 'audio' ? 'audio/mpeg' : 'image/jpeg');
+    const path = `library/${currentUser.id}/${Date.now()}_${Math.random().toString(36).slice(2)}.${ext}`;
+    const { error } = await sb.storage.from('octopusfur-media').upload(path, blob, { contentType, upsert: true });
+    if (error) throw error;
+    const { data } = sb.storage.from('octopusfur-media').getPublicUrl(path);
+    return data?.publicUrl || url;
+  } catch (e) {
+    console.error('rehostMedia failed, saving original (may expire later):', e);
+    return url; // better to save something than nothing, even if it may go dead eventually
+  }
+}
 async function saveLib(type, url, prompt) {
   if (!currentUser || !url) return false;
   try {
-    const { error } = await sb.from('library_items').insert({ id: Date.now().toString(), user_id: currentUser.id, type, url, prompt: prompt || '' });
+    const permanentUrl = type === 'audio' ? url : await rehostMedia(url, type); // audio already uses this bucket at creation time
+    const { error } = await sb.from('library_items').insert({ id: Date.now().toString(), user_id: currentUser.id, type, url: permanentUrl, prompt: prompt || '' });
     if (error) throw error;
     if (currentScreen === 'library') loadLibrary();
     return true;
@@ -3025,7 +3048,7 @@ async function saveLibClick(btn, type, url, prompt) {
   btn.textContent = 'Saving...';
   const ok = await saveLib(type, url, prompt);
   if (ok) {
-    btn.textContent = '✓ Saved';
+    btn.textContent = 'Saved';
     showSaveToast();
   } else {
     btn.textContent = orig;
@@ -3055,30 +3078,27 @@ async function saveBlobSafe(blob, name) {
 }
 async function dlFileSafe(url, name) {
   if (!url) return;
-
-  // Supabase storage URLs can't be fetched cross-origin — open directly
-  // window.open on a video/image URL triggers the browser's native download/share sheet
-  if (url.includes('supabase') || url.includes('.co/storage/')) {
-    window.open(url, '_blank');
-    return;
-  }
-
   let ok = false;
   try {
     const r = await fetch(url);
     if (!r.ok) throw new Error('fetch not ok');
     const b = await r.blob();
+    // Web Share API with files → opens the native iOS share sheet (Save Image/Save Video/
+    // Save to Files) without ever leaving the standalone PWA. window.open()/<a target="_blank">
+    // are NOT safe fallbacks here — both force a standalone PWA out to Safari, which is the
+    // exact "breaking the PWA" bug this function exists to avoid. If the fetch fails (usually
+    // CORS on a CDN URL), the only safe fallback is telling the user to long-press the media,
+    // since that's handled natively by iOS and doesn't depend on JS fetch at all.
     ok = await saveBlobSafe(b, name);
   } catch (e) {
-    // fetch failed (CORS, auth, network) — fall back to window.open
-    try { window.open(url, '_blank'); ok = true; } catch(_) { ok = false; }
+    ok = false;
   }
   if (!ok) showLongPressHint();
 }
 function showLongPressHint() {
   const t = document.getElementById('save-toast');
   if (!t) { alert('Couldn\'t auto-save — press and hold the image or video above, then tap "Save Image" / "Save Video".'); return; }
-  t.innerHTML = '⚠️ Auto-save blocked — press &amp; hold the media above, then tap Save';
+  t.innerHTML = 'Auto-save blocked — press &amp; hold the media above, then tap Save';
   t.style.maxWidth = '86vw'; t.style.whiteSpace = 'normal'; t.style.textAlign = 'center';
   t.classList.add('show');
   setTimeout(() => { t.classList.remove('show'); t.style.maxWidth=''; t.style.whiteSpace='nowrap'; t.innerHTML = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--grn)" stroke-width="2.5" stroke-linecap="round"><polyline points="20 6 9 17 4 12"/></svg> Saved to Library'; }, 4000);
