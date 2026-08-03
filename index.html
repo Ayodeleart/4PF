@@ -1007,7 +1007,7 @@ select.inp{cursor:pointer;appearance:none;background-image:url("data:image/svg+x
         <button class="chip" data-val="bikini" onclick="arianaSwitchWardrobe(this,'bikini')">Bikini / Beach</button>
       </div>
       <div id="ariana-wardrobe-grid" style="display:flex;gap:8px;flex-wrap:wrap"></div>
-      <input type="file" id="ariana-wardrobe-file" accept="image/*" hidden onchange="arianaUploadWardrobe(this)">
+      <input type="file" id="ariana-wardrobe-file" accept="image/*" hidden multiple onchange="arianaUploadWardrobe(this)">
     </div>
 
     <!-- POSE -->
@@ -3416,25 +3416,34 @@ function arianaToggleWardrobe(id) {
   }
   arianaRenderWardrobeGrid();
 }
+function readFileAsDataUrl(file) {
+  return new Promise((resolve, reject) => {
+    const r = new FileReader();
+    r.onload = e => resolve(e.target.result);
+    r.onerror = reject;
+    r.readAsDataURL(file);
+  });
+}
 async function arianaUploadWardrobe(inp) {
-  const file = inp.files[0]; if (!file) return;
-  const reader = new FileReader();
-  reader.onload = async (e) => {
+  const files = Array.from(inp.files || []); if (!files.length) return;
+  const cat = ariana.wardrobeTab;
+  let failed = 0;
+  for (let i = 0; i < files.length; i++) {
     try {
-      const jpeg = await normaliseToJpeg(e.target.result);
+      const dataUrl = await readFileAsDataUrl(files[i]);
+      const jpeg = await normaliseToJpeg(dataUrl);
       const blob = await (await fetch(jpeg)).blob();
-      const cat = ariana.wardrobeTab;
-      const path = `ariana/wardrobe/${cat}/${currentUser.id}/${Date.now()}.jpg`;
+      const path = `ariana/wardrobe/${cat}/${currentUser.id}/${Date.now()}_${i}.jpg`;
       const { error: upErr } = await sb.storage.from('octopusfur-media').upload(path, blob, { contentType: 'image/jpeg', upsert: true });
       if (upErr) throw upErr;
       const { data } = sb.storage.from('octopusfur-media').getPublicUrl(path);
-      const id = Date.now().toString();
+      const id = Date.now().toString() + '_' + i;
       await sb.from('ariana_wardrobe').insert({ id, user_id: currentUser.id, url: data.publicUrl, category: cat });
       ariana.wardrobe[cat].push({ id, url: data.publicUrl });
-      arianaRenderWardrobeGrid();
-    } catch (err) { alert('Wardrobe upload failed: ' + (err.message || err)); }
-  };
-  reader.readAsDataURL(file);
+      arianaRenderWardrobeGrid(); // progressive: each piece appears as soon as it's done
+    } catch (err) { failed++; console.warn('Wardrobe upload failed:', err); }
+  }
+  if (failed) alert(`${failed} of ${files.length} wardrobe photo(s) failed to upload — try those again.`);
   inp.value = '';
 }
 
