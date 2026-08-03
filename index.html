@@ -394,6 +394,10 @@ select.inp{cursor:pointer;appearance:none;background-image:url("data:image/svg+x
         <div class="fc-icon"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="var(--txt2)" stroke-width="1.8" stroke-linecap="round"><rect x="2" y="7" width="14" height="14" rx="2"/><path d="M16 7V5a2 2 0 00-2-2H5a2 2 0 00-2 2v9a2 2 0 002 2h2"/></svg></div>
         <div class="fc-name">Image to Image</div>
       </div>
+      <div class="fc" onclick="go('ariana')">
+        <div class="fc-icon"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="var(--txt2)" stroke-width="1.8" stroke-linecap="round"><circle cx="12" cy="7" r="4"/><path d="M4.5 20c0-4.4 3.4-7.5 7.5-7.5s7.5 3.1 7.5 7.5"/><circle cx="12" cy="7" r="1.4" fill="var(--txt2)"/></svg></div>
+        <div class="fc-name">Ariana</div>
+      </div>
     </div>
     <!-- TEMPLATES -->
     <div id="templates-section" style="display:none">
@@ -952,6 +956,137 @@ select.inp{cursor:pointer;appearance:none;background-image:url("data:image/svg+x
   </div>
 </div>
 
+<!-- ═══════════════ ARIANA (CONSISTENT CHARACTER GENERATION) ═══════════════ -->
+<div id="screen-ariana" class="screen">
+  <div class="hdr">
+    <button class="ib" onclick="goBack()"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M19 12H5M12 19l-7-7 7-7"/></svg></button>
+    <span class="hdr-title">Ariana</span>
+  </div>
+  <div class="pscroll">
+
+    <!-- IDENTITY LOCK -->
+    <div class="sec">
+      <label class="lbl">Identity Lock <span style="color:var(--txt3);font-weight:400">— up to 4 reference selfies, always attached</span></label>
+      <div id="ariana-faces-grid" style="display:flex;gap:8px;flex-wrap:wrap"></div>
+      <input type="file" id="ariana-face-file" accept="image/*" hidden onchange="arianaUploadFace(this)">
+    </div>
+
+    <!-- CONSISTENCY SLIDER -->
+    <div class="sec">
+      <label class="lbl">Consistency <span id="ariana-cons-v" style="color:var(--txt2)">90 · Photographically identical</span></label>
+      <input type="range" id="ariana-consistency" min="0" max="100" step="1" value="90" style="width:100%;accent-color:var(--txt)" oninput="arianaConsistencyLabel(this.value)">
+    </div>
+
+    <!-- SELFIE TYPE -->
+    <div class="sec">
+      <label class="lbl">Selfie Type</label>
+      <div style="display:flex;gap:8px;flex-wrap:wrap" id="ariana-selfie-chips">
+        <button class="chip on" data-val="regular" onclick="pickChip(this,'ariana-selfie-chips');ariana.selfieType=this.dataset.val">Regular</button>
+        <button class="chip" data-val="mirror" onclick="pickChip(this,'ariana-selfie-chips');ariana.selfieType=this.dataset.val">Mirror</button>
+        <button class="chip" data-val="bathroom" onclick="pickChip(this,'ariana-selfie-chips');ariana.selfieType=this.dataset.val">Bathroom</button>
+        <button class="chip" data-val="bed at night" onclick="pickChip(this,'ariana-selfie-chips');ariana.selfieType=this.dataset.val">Bed (night)</button>
+        <button class="chip" data-val="in the car" onclick="pickChip(this,'ariana-selfie-chips');ariana.selfieType=this.dataset.val">Car</button>
+        <button class="chip" data-val="doing chores" onclick="pickChip(this,'ariana-selfie-chips');ariana.selfieType=this.dataset.val">Chores</button>
+      </div>
+    </div>
+
+    <!-- MAKEUP -->
+    <div class="sec">
+      <label class="lbl">Makeup</label>
+      <div style="display:flex;gap:8px" id="ariana-makeup-chips">
+        <button class="chip on" data-val="glam" onclick="pickChip(this,'ariana-makeup-chips');ariana.makeup=this.dataset.val">Glam</button>
+        <button class="chip" data-val="bare" onclick="pickChip(this,'ariana-makeup-chips');ariana.makeup=this.dataset.val">Bare face + packed hair</button>
+      </div>
+    </div>
+
+    <!-- WARDROBE -->
+    <div class="sec">
+      <label class="lbl">Wardrobe <span style="color:var(--txt3);font-weight:400">— pick up to 3, copied garment-exactly</span></label>
+      <div style="display:flex;gap:6px;margin-bottom:8px">
+        <button class="chip on" data-val="everyday" onclick="arianaSwitchWardrobe(this,'everyday')">Everyday</button>
+        <button class="chip" data-val="bikini" onclick="arianaSwitchWardrobe(this,'bikini')">Bikini / Beach</button>
+      </div>
+      <div id="ariana-wardrobe-grid" style="display:flex;gap:8px;flex-wrap:wrap"></div>
+      <input type="file" id="ariana-wardrobe-file" accept="image/*" hidden onchange="arianaUploadWardrobe(this)">
+    </div>
+
+    <!-- POSE -->
+    <div class="sec">
+      <label class="lbl">Pose <span style="color:var(--txt3);font-weight:400">— pose copied only, not the person in it</span></label>
+      <div id="ariana-pose-grid" style="display:flex;gap:8px;flex-wrap:wrap"></div>
+      <input type="file" id="ariana-pose-file" accept="image/*" hidden onchange="arianaUploadPose(this)">
+    </div>
+
+    <!-- BACKGROUND -->
+    <div class="sec">
+      <label class="lbl">Background</label>
+      <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:8px" id="ariana-bg-mode-chips">
+        <button class="chip on" data-val="locked" onclick="arianaSetBgMode(this,'locked')">Locked place</button>
+        <button class="chip" data-val="library" onclick="arianaSetBgMode(this,'library')">Library</button>
+        <button class="chip" data-val="upload" onclick="arianaSetBgMode(this,'upload')">Upload</button>
+        <button class="chip" data-val="pose" onclick="arianaSetBgMode(this,'pose')">Use pose background</button>
+      </div>
+      <div id="ariana-bg-locked-wrap">
+        <input type="text" id="ariana-bg-locked-text" class="inp" placeholder="e.g. her bedroom with fairy lights, or a beach cabana">
+      </div>
+      <div id="ariana-bg-library-wrap" style="display:none">
+        <div id="ariana-bg-grid" style="display:flex;gap:8px;flex-wrap:wrap"></div>
+        <input type="file" id="ariana-bg-file" accept="image/*" hidden onchange="arianaUploadBackground(this)">
+      </div>
+      <div id="ariana-bg-upload-wrap" style="display:none">
+        <input type="file" id="ariana-bg-upload-file" accept="image/*" hidden onchange="arianaUploadBgAdHoc(this)">
+        <div class="upload-box" onclick="document.getElementById('ariana-bg-upload-file').click()">
+          <img id="ariana-bg-upload-prev" style="width:100%;max-height:140px;object-fit:cover;display:none;border-radius:8px" alt="">
+          <div class="uph" id="ariana-bg-upload-ph"><span style="font-size:12px">Upload a background photo</span></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- MOOD / EXTRA -->
+    <div class="sec"><label class="lbl">Mood <span style="color:var(--txt3);font-weight:400">(optional)</span></label>
+      <input type="text" id="ariana-mood" class="inp" placeholder="e.g. relaxed, confident, playful"></div>
+    <div class="sec"><label class="lbl">Extra details <span style="color:var(--txt3);font-weight:400">(optional)</span></label>
+      <textarea id="ariana-extra" class="inp" rows="2" placeholder="Anything else to add to the scene..."></textarea></div>
+
+    <!-- ASPECT + BATCH -->
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px" class="sec">
+      <div>
+        <label class="lbl">Aspect Ratio</label>
+        <select id="ariana-aspect" class="inp">
+          <option value="9:16" selected>9:16 (default)</option>
+          <option value="3:4">3:4</option>
+          <option value="4:5">4:5</option>
+          <option value="1:1">1:1</option>
+          <option value="4:3">4:3</option>
+          <option value="16:9">16:9</option>
+        </select>
+      </div>
+      <div>
+        <label class="lbl">Batch</label>
+        <select id="ariana-batch" class="inp">
+          <option value="1" selected>1 variation</option>
+          <option value="2">2 variations</option>
+          <option value="3">3 variations</option>
+          <option value="4">4 variations</option>
+          <option value="5">5 variations</option>
+          <option value="6">6 variations</option>
+        </select>
+      </div>
+    </div>
+    <div class="sec">
+      <label class="lbl">Quality</label>
+      <div style="display:flex;gap:8px" id="ariana-quality-chips">
+        <button class="chip on" data-val="fal-ai/nano-banana/edit" onclick="pickChip(this,'ariana-quality-chips');ariana.model=this.dataset.val">Standard</button>
+        <button class="chip" data-val="fal-ai/nano-banana-pro/edit" onclick="pickChip(this,'ariana-quality-chips');ariana.model=this.dataset.val">Pro</button>
+      </div>
+    </div>
+
+    <button class="btn" id="ariana-btn" onclick="doArianaGenerate()" style="margin-top:10px">Generate</button>
+    <div id="ariana-err" class="err"></div>
+    <div id="ariana-results" style="display:flex;flex-direction:column;gap:12px;margin-top:14px"></div>
+  </div>
+</div>
+
 <!-- ═══════════════ CHANGE PASSWORD OVERLAY ═══════════════ -->
 <div id="chpw-overlay" style="display:none;position:fixed;inset:0;z-index:200;background:var(--bg)">
   <div class="eo-hdr">
@@ -1174,6 +1309,28 @@ select.inp{cursor:pointer;appearance:none;background-image:url("data:image/svg+x
  SUPABASE STORAGE — create buckets:
  - hero-media (public)
  - octopusfur-media (public)
+ - ariana-faces (private — no public read policy; app uses createSignedUrl)
+
+ ARIANA TABLES — run in SQL Editor:
+
+ create table ariana_faces (id text primary key, user_id text not null, storage_path text not null, created_at timestamptz default now());
+ create table ariana_wardrobe (id text primary key, user_id text not null, url text not null, category text not null default 'everyday', created_at timestamptz default now());
+ create table ariana_poses (id text primary key, user_id text not null, url text not null, created_at timestamptz default now());
+ create table ariana_backgrounds (id text primary key, user_id text not null, url text not null, created_at timestamptz default now());
+
+ alter table ariana_faces enable row level security;
+ alter table ariana_wardrobe enable row level security;
+ alter table ariana_poses enable row level security;
+ alter table ariana_backgrounds enable row level security;
+ create policy "own rows" on ariana_faces for all using (user_id = auth.uid()::text) with check (user_id = auth.uid()::text);
+ create policy "own rows" on ariana_wardrobe for all using (user_id = auth.uid()::text) with check (user_id = auth.uid()::text);
+ create policy "own rows" on ariana_poses for all using (user_id = auth.uid()::text) with check (user_id = auth.uid()::text);
+ create policy "own rows" on ariana_backgrounds for all using (user_id = auth.uid()::text) with check (user_id = auth.uid()::text);
+
+ STORAGE POLICIES (ariana-faces bucket — private):
+ create policy "own files read" on storage.objects for select using (bucket_id = 'ariana-faces' and (storage.foldername(name))[1] = auth.uid()::text);
+ create policy "own files write" on storage.objects for insert with check (bucket_id = 'ariana-faces' and (storage.foldername(name))[1] = auth.uid()::text);
+ create policy "own files delete" on storage.objects for delete using (bucket_id = 'ariana-faces' and (storage.foldername(name))[1] = auth.uid()::text);
 */
 
 const SB_URL        = 'https://lvjatrpupssmpftutkzt.supabase.co';
@@ -1637,7 +1794,7 @@ function startTemplate(i) {
     lastY = y;
   }
 })();
-const INNER = ['signin','chat','tts','pimg','pvid','i2v','motion','talkphoto','refimg','keys','heromanage','library'];
+const INNER = ['signin','chat','tts','pimg','pvid','i2v','motion','talkphoto','refimg','keys','heromanage','library','ariana'];
 function go(screen, params = {}) {
   document.querySelectorAll('.screen').forEach(s => s.classList.remove('on'));
   const el = document.getElementById('screen-' + screen);
@@ -1661,6 +1818,7 @@ function go(screen, params = {}) {
   }
 
   if (screen === 'library') loadLibrary();
+  if (screen === 'ariana') loadArianaAssets();
   if (screen === 'tts') {
     renderCustomVoices();
     const savedProvider = localStorage.getItem('ss_tts_provider');
@@ -3108,6 +3266,374 @@ function pickChip(el, group) { document.querySelectorAll('#'+group+' .chip').for
 function readFile(inp, cb) { const file = inp.files[0]; if (!file) return; const r = new FileReader(); r.onload = e => cb(e.target.result); r.readAsDataURL(file); }
 function esc(s) { return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
 function relTime(ts) { const m = Math.floor((Date.now()-new Date(ts).getTime())/60000); if (m<1) return 'just now'; if (m<60) return m+'m ago'; const h=Math.floor(m/60); if(h<24) return h+'h ago'; return Math.floor(h/24)+'d ago'; }
+
+// ══════════════════════════ ARIANA (CONSISTENT CHARACTER GENERATION) ══════════════════════════
+// Storage: private bucket "ariana-faces" (identity selfies, signed URLs only) +
+// public bucket "octopusfur-media" under ariana/wardrobe|poses|backgrounds/ (non-sensitive assets).
+// Model: fal-ai/nano-banana/edit (or /nano-banana-pro/edit) — multi-image-reference edit model.
+const ARIANA_PERSONA_LINE = '25 years old, Mediterranean-Latina, 5\'9", editorial hourglass proportions, consistent hair/face/makeup spec across every image.';
+const ARIANA_BODY_SPEC = "Natural hourglass physique, slim defined waist, full natural bust, rounded hips, wide feminine pelvis, toned flat stomach with soft feminine definition, naturally rounded glutes, thick shapely thighs, toned calves, proportionate long legs, soft athletic arms, elegant shoulders, graceful neck, balanced proportions, realistic anatomy, healthy body fat distribution, smooth deep brown skin with visible pores, soft natural skin texture, subtle muscle definition, premium fashion model physique, anatomically correct, highly detailed, ultra photorealistic, consistent body proportions, identical waist-to-hip ratio, identical bust shape, identical shoulder width, identical thigh volume, identical leg length, no body distortion, no exaggerated proportions, 8K realism.";
+const ARIANA_VARIATION_HINTS = [
+  'tight close-up crop on face and shoulders',
+  'medium shot from the waist up',
+  'full-length shot showing the whole outfit',
+  'slightly turned three-quarter angle, same pose held',
+  'candid mid-motion moment, natural unposed feel',
+  'over-the-shoulder glance toward the camera, same pose held'
+];
+
+const ariana = {
+  faces: [],                                   // [{id, path, url}] — up to 4, always attached
+  wardrobeTab: 'everyday',
+  wardrobe: { everyday: [], bikini: [] },
+  selectedWardrobe: [],                        // up to 3 per generation
+  poses: [], selectedPoseUrl: null,
+  backgrounds: [], selectedBgUrl: null,
+  bgMode: 'locked', bgUploadSrc: null, bgLockedText: '',
+  selfieType: 'regular', makeup: 'glam',
+  mood: '', extra: '', consistency: 90,
+  model: 'fal-ai/nano-banana/edit'
+};
+
+async function loadArianaAssets() {
+  if (!currentUser) return;
+  try {
+    const [{ data: faces }, { data: wardrobe }, { data: poses }, { data: bgs }] = await Promise.all([
+      sb.from('ariana_faces').select('*').eq('user_id', currentUser.id).order('created_at'),
+      sb.from('ariana_wardrobe').select('*').eq('user_id', currentUser.id).order('created_at'),
+      sb.from('ariana_poses').select('*').eq('user_id', currentUser.id).order('created_at'),
+      sb.from('ariana_backgrounds').select('*').eq('user_id', currentUser.id).order('created_at')
+    ]);
+    ariana.faces = [];
+    for (const f of (faces || [])) {
+      const { data: signed } = await sb.storage.from('ariana-faces').createSignedUrl(f.storage_path, 3600);
+      ariana.faces.push({ id: f.id, path: f.storage_path, url: signed?.signedUrl });
+    }
+    ariana.wardrobe = {
+      everyday: (wardrobe || []).filter(w => w.category === 'everyday'),
+      bikini:   (wardrobe || []).filter(w => w.category === 'bikini')
+    };
+    ariana.poses = poses || [];
+    ariana.backgrounds = bgs || [];
+    ariana.selectedWardrobe = []; ariana.selectedPoseUrl = null; ariana.selectedBgUrl = null;
+    arianaRenderFacesGrid(); arianaRenderWardrobeGrid(); arianaRenderPoseGrid(); arianaRenderBgGrid();
+    document.getElementById('ariana-results').innerHTML = '';
+  } catch (e) { console.warn('loadArianaAssets:', e); }
+}
+
+async function arianaRefreshFaceUrls() {
+  for (const f of ariana.faces) {
+    try {
+      const { data: signed } = await sb.storage.from('ariana-faces').createSignedUrl(f.path, 3600);
+      if (signed?.signedUrl) f.url = signed.signedUrl;
+    } catch (_) {}
+  }
+}
+
+function arianaAddTile(active) {
+  return `<div class="upload-box" style="width:64px;height:64px;min-height:0;display:flex;align-items:center;justify-content:center" onclick="${active}"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="var(--txt3)" stroke-width="2" stroke-linecap="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg></div>`;
+}
+
+// ── IDENTITY LOCK (faces) ──
+function arianaRenderFacesGrid() {
+  const grid = document.getElementById('ariana-faces-grid');
+  let html = ariana.faces.map(f => `
+    <div style="position:relative;width:64px;height:64px">
+      <img src="${esc(f.url)}" style="width:64px;height:64px;object-fit:cover;border-radius:8px;border:1px solid var(--bdr)">
+      <button onclick="arianaDeleteFace('${f.id}')" style="position:absolute;top:-6px;right:-6px;width:18px;height:18px;border-radius:50%;background:var(--s3);border:1px solid var(--bdr2);font-size:11px;line-height:1;color:var(--txt2);cursor:pointer">×</button>
+    </div>`).join('');
+  if (ariana.faces.length < 4) html += arianaAddTile("document.getElementById('ariana-face-file').click()");
+  grid.innerHTML = html;
+}
+async function arianaUploadFace(inp) {
+  const file = inp.files[0]; if (!file) return;
+  if (ariana.faces.length >= 4) { alert('Max 4 reference selfies — remove one first.'); inp.value=''; return; }
+  const reader = new FileReader();
+  reader.onload = async (e) => {
+    try {
+      const jpeg = await normaliseToJpeg(e.target.result);
+      const blob = await (await fetch(jpeg)).blob();
+      const path = currentUser.id + '/' + Date.now() + '.jpg';
+      const { error: upErr } = await sb.storage.from('ariana-faces').upload(path, blob, { contentType: 'image/jpeg', upsert: true });
+      if (upErr) throw upErr;
+      const { data: signed } = await sb.storage.from('ariana-faces').createSignedUrl(path, 3600);
+      const id = Date.now().toString();
+      await sb.from('ariana_faces').insert({ id, user_id: currentUser.id, storage_path: path });
+      ariana.faces.push({ id, path, url: signed?.signedUrl });
+      arianaRenderFacesGrid();
+    } catch (err) { alert('Face upload failed: ' + (err.message || err)); }
+  };
+  reader.readAsDataURL(file);
+  inp.value = '';
+}
+async function arianaDeleteFace(id) {
+  const f = ariana.faces.find(x => x.id === id); if (!f) return;
+  await sb.storage.from('ariana-faces').remove([f.path]);
+  await sb.from('ariana_faces').delete().eq('id', id);
+  ariana.faces = ariana.faces.filter(x => x.id !== id);
+  arianaRenderFacesGrid();
+}
+function arianaConsistencyLabel(v) {
+  v = +v; ariana.consistency = v;
+  const label = v >= 90 ? 'Photographically identical' : v >= 70 ? 'Strict match' : v >= 40 ? 'Moderate — recognizable' : 'Loose inspiration';
+  document.getElementById('ariana-cons-v').textContent = v + ' · ' + label;
+}
+function arianaConsistencyDirective(v) {
+  v = +v;
+  if (v >= 90) return 'CRITICAL: the face and body must be photographically identical to the reference selfies — same bone structure, same skin, same proportions, zero deviation.';
+  if (v >= 70) return 'Keep the face and body strictly consistent with the reference selfies, allowing only minor natural variation from lighting and angle.';
+  if (v >= 40) return 'Keep the face and body clearly recognizable as the same person as the reference selfies, with moderate flexibility.';
+  return 'Use the reference selfies as loose inspiration for the face and body — an identical match is not required.';
+}
+
+// ── WARDROBE ──
+function arianaSwitchWardrobe(el, tab) {
+  el.parentElement.querySelectorAll('.chip').forEach(c => c.classList.remove('on'));
+  el.classList.add('on');
+  ariana.wardrobeTab = tab;
+  arianaRenderWardrobeGrid();
+}
+function arianaRenderWardrobeGrid() {
+  const grid = document.getElementById('ariana-wardrobe-grid');
+  const list = ariana.wardrobe[ariana.wardrobeTab] || [];
+  let html = list.map(w => {
+    const sel = ariana.selectedWardrobe.some(x => x.id === w.id);
+    return `<div onclick="arianaToggleWardrobe('${w.id}')" style="position:relative;width:64px;height:64px;cursor:pointer">
+      <img src="${esc(w.url)}" style="width:64px;height:64px;object-fit:cover;border-radius:8px;border:2px solid ${sel ? 'var(--acc)' : 'var(--bdr)'}">
+      ${sel ? '<div style="position:absolute;top:2px;right:2px;width:16px;height:16px;border-radius:50%;background:var(--acc);color:#fff;font-size:10px;display:flex;align-items:center;justify-content:center">✓</div>' : ''}
+    </div>`;
+  }).join('');
+  html += arianaAddTile("document.getElementById('ariana-wardrobe-file').click()");
+  grid.innerHTML = html;
+}
+function arianaToggleWardrobe(id) {
+  const idx = ariana.selectedWardrobe.findIndex(x => x.id === id);
+  if (idx >= 0) { ariana.selectedWardrobe.splice(idx, 1); }
+  else {
+    if (ariana.selectedWardrobe.length >= 3) { alert('Max 3 wardrobe pieces per generation.'); return; }
+    const w = ariana.wardrobe[ariana.wardrobeTab].find(x => x.id === id);
+    if (w) ariana.selectedWardrobe.push(w);
+  }
+  arianaRenderWardrobeGrid();
+}
+async function arianaUploadWardrobe(inp) {
+  const file = inp.files[0]; if (!file) return;
+  const reader = new FileReader();
+  reader.onload = async (e) => {
+    try {
+      const jpeg = await normaliseToJpeg(e.target.result);
+      const blob = await (await fetch(jpeg)).blob();
+      const cat = ariana.wardrobeTab;
+      const path = `ariana/wardrobe/${cat}/${currentUser.id}/${Date.now()}.jpg`;
+      const { error: upErr } = await sb.storage.from('octopusfur-media').upload(path, blob, { contentType: 'image/jpeg', upsert: true });
+      if (upErr) throw upErr;
+      const { data } = sb.storage.from('octopusfur-media').getPublicUrl(path);
+      const id = Date.now().toString();
+      await sb.from('ariana_wardrobe').insert({ id, user_id: currentUser.id, url: data.publicUrl, category: cat });
+      ariana.wardrobe[cat].push({ id, url: data.publicUrl });
+      arianaRenderWardrobeGrid();
+    } catch (err) { alert('Wardrobe upload failed: ' + (err.message || err)); }
+  };
+  reader.readAsDataURL(file);
+  inp.value = '';
+}
+
+// ── POSE ──
+function arianaRenderPoseGrid() {
+  const grid = document.getElementById('ariana-pose-grid');
+  let html = ariana.poses.map(p => {
+    const sel = ariana.selectedPoseUrl === p.url;
+    return `<div onclick="arianaSelectPose('${p.id}')" style="position:relative;width:64px;height:64px;cursor:pointer">
+      <img src="${esc(p.url)}" style="width:64px;height:64px;object-fit:cover;border-radius:8px;border:2px solid ${sel ? 'var(--acc)' : 'var(--bdr)'}">
+    </div>`;
+  }).join('');
+  html += arianaAddTile("document.getElementById('ariana-pose-file').click()");
+  grid.innerHTML = html;
+}
+function arianaSelectPose(id) {
+  const p = ariana.poses.find(x => x.id === id); if (!p) return;
+  ariana.selectedPoseUrl = (ariana.selectedPoseUrl === p.url) ? null : p.url;
+  arianaRenderPoseGrid();
+}
+async function arianaUploadPose(inp) {
+  const file = inp.files[0]; if (!file) return;
+  const reader = new FileReader();
+  reader.onload = async (e) => {
+    try {
+      const jpeg = await normaliseToJpeg(e.target.result);
+      const blob = await (await fetch(jpeg)).blob();
+      const path = `ariana/poses/${currentUser.id}/${Date.now()}.jpg`;
+      const { error: upErr } = await sb.storage.from('octopusfur-media').upload(path, blob, { contentType: 'image/jpeg', upsert: true });
+      if (upErr) throw upErr;
+      const { data } = sb.storage.from('octopusfur-media').getPublicUrl(path);
+      const id = Date.now().toString();
+      await sb.from('ariana_poses').insert({ id, user_id: currentUser.id, url: data.publicUrl });
+      ariana.poses.push({ id, url: data.publicUrl });
+      arianaRenderPoseGrid();
+    } catch (err) { alert('Pose upload failed: ' + (err.message || err)); }
+  };
+  reader.readAsDataURL(file);
+  inp.value = '';
+}
+
+// ── BACKGROUND ──
+function arianaSetBgMode(el, mode) {
+  document.querySelectorAll('#ariana-bg-mode-chips .chip').forEach(c => c.classList.remove('on'));
+  el.classList.add('on');
+  ariana.bgMode = mode;
+  document.getElementById('ariana-bg-locked-wrap').style.display  = mode === 'locked'  ? 'block' : 'none';
+  document.getElementById('ariana-bg-library-wrap').style.display = mode === 'library' ? 'block' : 'none';
+  document.getElementById('ariana-bg-upload-wrap').style.display  = mode === 'upload'  ? 'block' : 'none';
+}
+function arianaRenderBgGrid() {
+  const grid = document.getElementById('ariana-bg-grid'); if (!grid) return;
+  let html = ariana.backgrounds.map(b => {
+    const sel = ariana.selectedBgUrl === b.url;
+    return `<div onclick="arianaSelectBg('${b.id}')" style="position:relative;width:64px;height:64px;cursor:pointer">
+      <img src="${esc(b.url)}" style="width:64px;height:64px;object-fit:cover;border-radius:8px;border:2px solid ${sel ? 'var(--acc)' : 'var(--bdr)'}">
+    </div>`;
+  }).join('');
+  html += arianaAddTile("document.getElementById('ariana-bg-file').click()");
+  grid.innerHTML = html;
+}
+function arianaSelectBg(id) {
+  const b = ariana.backgrounds.find(x => x.id === id); if (!b) return;
+  ariana.selectedBgUrl = (ariana.selectedBgUrl === b.url) ? null : b.url;
+  arianaRenderBgGrid();
+}
+async function arianaUploadBackground(inp) {
+  const file = inp.files[0]; if (!file) return;
+  const reader = new FileReader();
+  reader.onload = async (e) => {
+    try {
+      const jpeg = await normaliseToJpeg(e.target.result);
+      const blob = await (await fetch(jpeg)).blob();
+      const path = `ariana/backgrounds/${currentUser.id}/${Date.now()}.jpg`;
+      const { error: upErr } = await sb.storage.from('octopusfur-media').upload(path, blob, { contentType: 'image/jpeg', upsert: true });
+      if (upErr) throw upErr;
+      const { data } = sb.storage.from('octopusfur-media').getPublicUrl(path);
+      const id = Date.now().toString();
+      await sb.from('ariana_backgrounds').insert({ id, user_id: currentUser.id, url: data.publicUrl });
+      ariana.backgrounds.push({ id, url: data.publicUrl });
+      arianaRenderBgGrid();
+    } catch (err) { alert('Background upload failed: ' + (err.message || err)); }
+  };
+  reader.readAsDataURL(file);
+  inp.value = '';
+}
+function arianaUploadBgAdHoc(inp) {
+  const file = inp.files[0]; if (!file) return;
+  const reader = new FileReader();
+  reader.onload = (e) => {
+    ariana.bgUploadSrc = e.target.result;
+    const prev = document.getElementById('ariana-bg-upload-prev'), ph = document.getElementById('ariana-bg-upload-ph');
+    prev.src = e.target.result; prev.style.display = 'block'; ph.style.display = 'none';
+  };
+  reader.readAsDataURL(file);
+  inp.value = '';
+}
+
+// ── PROMPT BUILD + GENERATE ──
+function arianaBackgroundClause() {
+  if (ariana.bgMode === 'locked') return ariana.bgLockedText ? `Background: ${ariana.bgLockedText}, kept identical across every shot.` : 'Background: a consistent, tasteful indoor setting, kept identical across every shot.';
+  if (ariana.bgMode === 'library' || ariana.bgMode === 'upload') return 'Background: copy the background reference image exactly — she is composited naturally into that setting.';
+  if (ariana.bgMode === 'pose') return 'Background: use whatever background appears in the pose reference image.';
+  return '';
+}
+function arianaBuildPrompt(variationHint) {
+  const wardrobeNote = ariana.selectedWardrobe.length
+    ? 'She is wearing the exact garment(s) shown in the wardrobe reference image(s) — copy them precisely (cut, color, pattern, fit); do not redesign them.'
+    : 'Wardrobe: use tasteful, everyday clothing appropriate to the scene.';
+  const poseNote = ariana.selectedPoseUrl
+    ? 'Copy the body pose/composition from the pose reference image exactly — but NOT the person, face, or body shown in that image; her face and body must always come from the identity-lock selfies.'
+    : '';
+  const makeupNote = ariana.makeup === 'glam' ? 'Glam makeup, hair styled down.' : 'Bare face, no makeup, hair pulled back / packed up.';
+  return [
+    `IDENTITY LOCK (never changes): the person in this image is the same woman shown in the attached reference selfie image(s). ${arianaConsistencyDirective(ariana.consistency)}`,
+    `Persona: ${ARIANA_PERSONA_LINE}`,
+    `Body: ${ARIANA_BODY_SPEC}`,
+    `Scene: a ${ariana.selfieType} selfie-style photo. ${makeupNote} ${wardrobeNote} ${poseNote} ${arianaBackgroundClause()}`,
+    ariana.mood ? `Mood: ${ariana.mood}.` : '',
+    ariana.extra || '',
+    `Framing for this shot: ${variationHint} — vary ONLY the camera framing/crop/angle; the face, body, outfit, pose, and background must not change.`,
+    'Strict rules: no on-image text, no watermarks, no logos, no borders or frames. Photorealistic, natural lighting consistent with the scene.'
+  ].filter(Boolean).join('\n');
+}
+async function doArianaGenerate() {
+  const btn = document.getElementById('ariana-btn');
+  const err = document.getElementById('ariana-err');
+  err.style.display = 'none'; err.textContent = '';
+  if (!ariana.faces.length) { err.textContent = 'Upload at least one reference selfie first.'; err.style.display = 'block'; return; }
+
+  await arianaRefreshFaceUrls();
+
+  const imageUrls = ariana.faces.map(f => f.url).filter(Boolean);
+  ariana.selectedWardrobe.forEach(w => imageUrls.push(w.url));
+  if (ariana.selectedPoseUrl) imageUrls.push(ariana.selectedPoseUrl);
+  if (ariana.bgMode === 'library' && ariana.selectedBgUrl) imageUrls.push(ariana.selectedBgUrl);
+  if (ariana.bgMode === 'upload' && ariana.bgUploadSrc) imageUrls.push(await toPublicUrl(ariana.bgUploadSrc));
+
+  ariana.mood = document.getElementById('ariana-mood').value.trim();
+  ariana.extra = document.getElementById('ariana-extra').value.trim();
+  ariana.bgLockedText = document.getElementById('ariana-bg-locked-text').value.trim();
+  const aspect = document.getElementById('ariana-aspect').value;
+  const batch = +document.getElementById('ariana-batch').value;
+
+  btn.disabled = true;
+  let anyOk = false;
+  for (let i = 0; i < batch; i++) {
+    const hint = ARIANA_VARIATION_HINTS[i % ARIANA_VARIATION_HINTS.length];
+    const prompt = arianaBuildPrompt(hint);
+    try {
+      const out = await falQueue(ariana.model, {
+        prompt, image_urls: imageUrls, num_images: 1,
+        aspect_ratio: aspect, output_format: 'png', safety_tolerance: '4'
+      }, 'ariana-btn', `Generating ${i + 1}/${batch}`);
+      const url = out?.images?.[0]?.url;
+      if (!url) throw new Error('The safety filter blocked this result — try a different photo, pose, or wording.');
+      anyOk = true;
+      arianaAppendResult(url);
+    } catch (e) {
+      arianaAppendError(e.message || String(e), i + 1);
+    }
+  }
+  btn.disabled = false; btn.innerHTML = 'Generate';
+  if (!anyOk) { err.textContent = 'All variations failed — see notes below.'; err.style.display = 'block'; }
+}
+function arianaAppendResult(url) {
+  const wrap = document.getElementById('ariana-results');
+  const id = 'ares-' + Math.random().toString(36).slice(2, 9);
+  const card = document.createElement('div');
+  card.className = 'res-wrap';
+  card.innerHTML = `<img id="${id}" src="${esc(url)}" alt="">
+    <div class="res-actions">
+      <button class="ra" onclick="arianaUpscale('${id}', this)">Upscale 8K</button>
+      <button class="ra" onclick="saveLibClick(this,'image',document.getElementById('${id}').src,'')">Save to Library</button>
+      <button class="ra" onclick="dlFileSafe(document.getElementById('${id}').src,'ariana.jpg')">Save to Device</button>
+    </div>`;
+  wrap.appendChild(card);
+}
+function arianaAppendError(msg, n) {
+  const wrap = document.getElementById('ariana-results');
+  const div = document.createElement('div');
+  div.className = 'err'; div.style.display = 'block';
+  div.textContent = `Variation ${n}: ${msg}`;
+  wrap.appendChild(div);
+}
+async function arianaUpscale(imgId, btn) {
+  const img = document.getElementById(imgId);
+  const orig = btn.textContent; btn.disabled = true; btn.innerHTML = '<div class="spin"></div> Upscaling...';
+  try {
+    const out = await falQueue('fal-ai/clarity-upscaler', { image_url: img.src }, null, 'Upscaling');
+    const url = out?.image?.url || out?.images?.[0]?.url;
+    if (!url) throw new Error('Upscale failed');
+    img.src = url;
+    btn.textContent = '8K ✓';
+  } catch (e) {
+    btn.textContent = orig; btn.disabled = false;
+    alert('Upscale failed: ' + (e.message || e));
+  }
+}
 function openUrl(u) { if (u !== '#') window.open(u,'_blank'); }
 </script>
 </body>
