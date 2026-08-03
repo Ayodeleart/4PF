@@ -1027,7 +1027,7 @@ select.inp{cursor:pointer;appearance:none;background-image:url("data:image/svg+x
         <button class="chip" data-val="pose" onclick="arianaSetBgMode(this,'pose')">Use pose background</button>
       </div>
       <div id="ariana-bg-locked-wrap">
-        <input type="text" id="ariana-bg-locked-text" class="inp" placeholder="e.g. her bedroom with fairy lights, or a beach cabana">
+        <input type="text" id="ariana-bg-locked-text" class="inp" placeholder="e.g. her bedroom with fairy lights, or a beach cabana" onchange="arianaSaveBgLocked(this.value)">
       </div>
       <div id="ariana-bg-library-wrap" style="display:none">
         <div id="ariana-bg-grid" style="display:flex;gap:8px;flex-wrap:wrap"></div>
@@ -1317,15 +1317,18 @@ select.inp{cursor:pointer;appearance:none;background-image:url("data:image/svg+x
  create table ariana_wardrobe (id text primary key, user_id text not null, url text not null, category text not null default 'everyday', created_at timestamptz default now());
  create table ariana_poses (id text primary key, user_id text not null, url text not null, created_at timestamptz default now());
  create table ariana_backgrounds (id text primary key, user_id text not null, url text not null, created_at timestamptz default now());
+ create table ariana_settings (user_id text primary key, locked_background text, updated_at timestamptz default now());
 
  alter table ariana_faces enable row level security;
  alter table ariana_wardrobe enable row level security;
  alter table ariana_poses enable row level security;
  alter table ariana_backgrounds enable row level security;
+ alter table ariana_settings enable row level security;
  create policy "own rows" on ariana_faces for all using (user_id = auth.uid()::text) with check (user_id = auth.uid()::text);
  create policy "own rows" on ariana_wardrobe for all using (user_id = auth.uid()::text) with check (user_id = auth.uid()::text);
  create policy "own rows" on ariana_poses for all using (user_id = auth.uid()::text) with check (user_id = auth.uid()::text);
  create policy "own rows" on ariana_backgrounds for all using (user_id = auth.uid()::text) with check (user_id = auth.uid()::text);
+ create policy "own rows" on ariana_settings for all using (user_id = auth.uid()::text) with check (user_id = auth.uid()::text);
 
  STORAGE POLICIES (ariana-faces bucket — private):
  create policy "own files read" on storage.objects for select using (bucket_id = 'ariana-faces' and (storage.foldername(name))[1] = auth.uid()::text);
@@ -3298,11 +3301,12 @@ const ariana = {
 async function loadArianaAssets() {
   if (!currentUser) return;
   try {
-    const [{ data: faces }, { data: wardrobe }, { data: poses }, { data: bgs }] = await Promise.all([
+    const [{ data: faces }, { data: wardrobe }, { data: poses }, { data: bgs }, { data: settings }] = await Promise.all([
       sb.from('ariana_faces').select('*').eq('user_id', currentUser.id).order('created_at'),
       sb.from('ariana_wardrobe').select('*').eq('user_id', currentUser.id).order('created_at'),
       sb.from('ariana_poses').select('*').eq('user_id', currentUser.id).order('created_at'),
-      sb.from('ariana_backgrounds').select('*').eq('user_id', currentUser.id).order('created_at')
+      sb.from('ariana_backgrounds').select('*').eq('user_id', currentUser.id).order('created_at'),
+      sb.from('ariana_settings').select('*').eq('user_id', currentUser.id).maybeSingle()
     ]);
     ariana.faces = [];
     for (const f of (faces || [])) {
@@ -3316,9 +3320,21 @@ async function loadArianaAssets() {
     ariana.poses = poses || [];
     ariana.backgrounds = bgs || [];
     ariana.selectedWardrobe = []; ariana.selectedPoseUrl = null; ariana.selectedBgUrl = null;
+    ariana.bgLockedText = settings?.locked_background || '';
+    const lockedInput = document.getElementById('ariana-bg-locked-text');
+    if (lockedInput) lockedInput.value = ariana.bgLockedText;
     arianaRenderFacesGrid(); arianaRenderWardrobeGrid(); arianaRenderPoseGrid(); arianaRenderBgGrid();
     document.getElementById('ariana-results').innerHTML = '';
   } catch (e) { console.warn('loadArianaAssets:', e); }
+}
+async function arianaSaveBgLocked(val) {
+  ariana.bgLockedText = (val || '').trim();
+  try {
+    await sb.from('ariana_settings').upsert(
+      { user_id: currentUser.id, locked_background: ariana.bgLockedText, updated_at: new Date().toISOString() },
+      { onConflict: 'user_id' }
+    );
+  } catch (e) { console.warn('arianaSaveBgLocked:', e); }
 }
 
 async function arianaRefreshFaceUrls() {
@@ -3585,6 +3601,7 @@ async function doArianaGenerate() {
   ariana.mood = document.getElementById('ariana-mood').value.trim();
   ariana.extra = document.getElementById('ariana-extra').value.trim();
   ariana.bgLockedText = document.getElementById('ariana-bg-locked-text').value.trim();
+  if (ariana.bgMode === 'locked' && ariana.bgLockedText) arianaSaveBgLocked(ariana.bgLockedText);
   const aspect = document.getElementById('ariana-aspect').value;
   const batch = +document.getElementById('ariana-batch').value;
 
