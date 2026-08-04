@@ -3731,9 +3731,8 @@ function arianaBuildPrompt(variationHint) {
 async function arianaFaceLockPass(generatedUrl) {
   const faceRef = ariana.faces[0]?.url;
   if (!faceRef) return null;
-  const out = await falQueue('easel-ai/advanced-face-swap', {
-    face_image_0: faceRef, gender_0: 'female',
-    target_image: generatedUrl, workflow_type: 'target_hair'
+  const out = await falQueue('fal-ai/face-swap', {
+    base_image_url: generatedUrl, swap_image_url: faceRef
   }, null, 'Locking face');
   return out?.image?.url || null;
 }
@@ -3741,11 +3740,13 @@ async function doArianaGenerate() {
   const btn = document.getElementById('ariana-btn');
   const err = document.getElementById('ariana-err');
   const liveStatus = document.getElementById('ariana-live-status');
+  if (btn.disabled) return; // already running — ignore a double-tap
+  btn.disabled = true;
   err.style.display = 'none'; err.textContent = '';
-  if (!ariana.faces.length) { err.textContent = 'Upload at least one reference selfie first.'; err.style.display = 'block'; return; }
-  if (ariana.bgMode === 'pose' && !ariana.selectedPoseUrl) { err.textContent = 'Background is set to "Use pose background" but no pose image is selected — pick one in the Pose section, or switch background mode.'; err.style.display = 'block'; return; }
-  if (ariana.bgMode === 'library' && !ariana.selectedBgUrl) { err.textContent = 'Background is set to Library but no background image is selected — pick one, or switch mode.'; err.style.display = 'block'; return; }
-  if (ariana.bgMode === 'upload' && !ariana.bgUploadSrc) { err.textContent = 'Background is set to Upload but no photo has been uploaded yet.'; err.style.display = 'block'; return; }
+  if (!ariana.faces.length) { err.textContent = 'Upload at least one reference selfie first.'; err.style.display = 'block'; btn.disabled = false; return; }
+  if (ariana.bgMode === 'pose' && !ariana.selectedPoseUrl) { err.textContent = 'Background is set to "Use pose background" but no pose image is selected — pick one in the Pose section, or switch background mode.'; err.style.display = 'block'; btn.disabled = false; return; }
+  if (ariana.bgMode === 'library' && !ariana.selectedBgUrl) { err.textContent = 'Background is set to Library but no background image is selected — pick one, or switch mode.'; err.style.display = 'block'; btn.disabled = false; return; }
+  if (ariana.bgMode === 'upload' && !ariana.bgUploadSrc) { err.textContent = 'Background is set to Upload but no photo has been uploaded yet.'; err.style.display = 'block'; btn.disabled = false; return; }
 
   await arianaRefreshFaceUrls();
 
@@ -3780,14 +3781,15 @@ async function doArianaGenerate() {
       let url = out?.images?.[0]?.url;
       if (!url) throw new Error('The safety filter blocked this result — try a different photo, pose, or wording.');
       anyOk = true;
+      let faceLockNote = '';
       if (ariana.faceLock && ariana.faces[0]?.url) {
         liveStatus.innerHTML = '<div class="spin"></div> Locking in her face...';
         try {
           const swapped = await arianaFaceLockPass(url);
-          if (swapped) url = swapped;
-        } catch (e) { console.warn('Face lock pass failed, using original:', e); }
+          if (swapped) url = swapped; else faceLockNote = '⚠ Face Lock returned no image — showing the uncorrected generation.';
+        } catch (e) { faceLockNote = `⚠ Face Lock failed (${e.message || e}) — showing the uncorrected generation.`; }
       }
-      arianaAppendResult(url, out?.description);
+      arianaAppendResult(url, out?.description, faceLockNote);
       if (submittedReqId) arianaClearPending(submittedReqId);
     } catch (e) {
       arianaAppendError(e.message || String(e), i + 1, e.requestId || submittedReqId, e.model || ariana.model);
@@ -3797,7 +3799,7 @@ async function doArianaGenerate() {
   liveStatus.style.display = 'none'; liveStatus.innerHTML = '';
   if (!anyOk) { err.textContent = 'All variations failed — see notes below.'; err.style.display = 'block'; }
 }
-function arianaAppendResult(url, description) {
+function arianaAppendResult(url, description, faceLockNote) {
   const wrap = document.getElementById('ariana-results');
   const id = 'ares-' + Math.random().toString(36).slice(2, 9);
   const card = document.createElement('div');
@@ -3808,6 +3810,7 @@ function arianaAppendResult(url, description) {
       <button class="ra" onclick="saveLibClick(this,'image',document.getElementById('${id}').src,'')">Save to Library</button>
       <button class="ra" onclick="dlFileSafe(document.getElementById('${id}').src,'ariana.jpg')">Save to Device</button>
     </div>
+    ${faceLockNote ? `<div style="font-size:11px;color:#c0392b;margin-top:4px">${esc(faceLockNote)}</div>` : ''}
     ${description ? `<div style="font-size:11px;color:var(--txt3);margin-top:4px">${esc(description)}</div>` : ''}`;
   wrap.appendChild(card);
 }
