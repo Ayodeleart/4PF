@@ -1080,6 +1080,13 @@ select.inp{cursor:pointer;appearance:none;background-image:url("data:image/svg+x
         <button class="chip on" data-val="fal-ai/nano-banana-pro/edit" onclick="pickChip(this,'ariana-quality-chips');ariana.model=this.dataset.val">Pro (recommended)</button>
       </div>
     </div>
+    <div class="sec">
+      <label class="lbl">Face Lock <span style="color:var(--txt3);font-weight:400">— corrects the face after generation to match her exactly</span></label>
+      <div style="display:flex;gap:8px" id="ariana-facelock-chips">
+        <button class="chip on" data-val="on" onclick="pickChip(this,'ariana-facelock-chips');ariana.faceLock=this.dataset.val==='on'">On (recommended)</button>
+        <button class="chip" data-val="off" onclick="pickChip(this,'ariana-facelock-chips');ariana.faceLock=this.dataset.val==='on'">Off</button>
+      </div>
+    </div>
 
     <button class="btn" id="ariana-btn" onclick="doArianaGenerate()" style="margin-top:10px">Generate</button>
     <div id="ariana-live-status" style="font-size:12px;color:var(--txt3);margin-top:6px;display:none"></div>
@@ -1319,17 +1326,20 @@ select.inp{cursor:pointer;appearance:none;background-image:url("data:image/svg+x
  create table ariana_poses (id text primary key, user_id text not null, url text not null, created_at timestamptz default now());
  create table ariana_backgrounds (id text primary key, user_id text not null, url text not null, created_at timestamptz default now());
  create table ariana_settings (user_id text primary key, locked_background text, updated_at timestamptz default now());
+ create table ariana_pending (id text primary key, user_id text not null, model text not null, created_at timestamptz default now());
 
  alter table ariana_faces enable row level security;
  alter table ariana_wardrobe enable row level security;
  alter table ariana_poses enable row level security;
  alter table ariana_backgrounds enable row level security;
  alter table ariana_settings enable row level security;
+ alter table ariana_pending enable row level security;
  create policy "own rows" on ariana_faces for all using (user_id = auth.uid()::text) with check (user_id = auth.uid()::text);
  create policy "own rows" on ariana_wardrobe for all using (user_id = auth.uid()::text) with check (user_id = auth.uid()::text);
  create policy "own rows" on ariana_poses for all using (user_id = auth.uid()::text) with check (user_id = auth.uid()::text);
  create policy "own rows" on ariana_backgrounds for all using (user_id = auth.uid()::text) with check (user_id = auth.uid()::text);
  create policy "own rows" on ariana_settings for all using (user_id = auth.uid()::text) with check (user_id = auth.uid()::text);
+ create policy "own rows" on ariana_pending for all using (user_id = auth.uid()::text) with check (user_id = auth.uid()::text);
 
  STORAGE POLICIES (ariana-faces bucket — private):
  create policy "own files read" on storage.objects for select using (bucket_id = 'ariana-faces' and (storage.foldername(name))[1] = auth.uid()::text);
@@ -2296,7 +2306,7 @@ async function toPublicUrl(src) {
 async function falUploadImage(dataUrl) { return toPublicUrl(dataUrl); }
 
 // ── FAL HELPER ──
-async function falQueue(model, body, btnId, label, onStatus) {
+async function falQueue(model, body, btnId, label, onStatus, onSubmitted) {
   const keys = getKeys();
   if (!keys.fal) throw new Error('Add your FAL.ai key in Profile > API Keys');
   const authHdr  = { 'Authorization': 'Key ' + keys.fal };
@@ -2318,6 +2328,7 @@ async function falQueue(model, body, btnId, label, onStatus) {
   const { request_id } = subData;
   const statusUrl = `${base}${model}/requests/${request_id}/status?logs=1`;
   const resultUrl = `${base}${model}/requests/${request_id}`;
+  if (onSubmitted) { try { await onSubmitted(request_id); } catch (_) {} }
 
   // ── 2. POLL STATUS ──
   const start = Date.now();
@@ -2328,8 +2339,8 @@ async function falQueue(model, body, btnId, label, onStatus) {
 
   let pollCount = 0;
   let failCount = 0;
-  const MAX_FAILS = 8; // ~40s of failed status checks before giving up
-  while (pollCount < 360) { // up to 30 min of real progress, but fails fast on dead connections
+  const MAX_FAILS = 30; // ~2-3 min of consecutive failures (e.g. screen-lock backgrounding) before giving up
+  while (pollCount < 360) { // up to 30 min of real progress
     await new Promise(r => setTimeout(r, pollCount < 6 ? 3000 : 5000)); // faster at start
     pollCount++;
 
@@ -2341,8 +2352,9 @@ async function falQueue(model, body, btnId, label, onStatus) {
 
     if (!ok) {
       failCount++;
-      if (failCount >= MAX_FAILS) {
-        // Last resort: the request may already be done and only status checks are failing — try the result directly.
+      // Every few failures (and definitely before giving up), try the result directly —
+      // it may already be done and only the status endpoint is having trouble.
+      if (failCount % 5 === 0 || failCount >= MAX_FAILS) {
         try {
           const resRes = await fetch(resultUrl, { headers: authHdr });
           if (resRes.ok) {
@@ -2350,7 +2362,11 @@ async function falQueue(model, body, btnId, label, onStatus) {
             if (result && (result.images || result.data || result.output)) return result.data ?? result.output ?? result;
           }
         } catch (_) {}
-        throw new Error(`Lost connection checking status after ${MAX_FAILS} retries (${elapsed()} in). Check your fal.ai dashboard — the image may already be done there.`);
+      }
+      if (failCount >= MAX_FAILS) {
+        const e = new Error(`Connection to fal dropped for a while (often a screen-lock/backgrounding pause) — this one couldn't finish on its own. Tap Recover to pick it back up, no need to leave the app.`);
+        e.requestId = request_id; e.model = model;
+        throw e;
       }
       setBtn(`<div class="spin"></div> Connection hiccup, retrying (${failCount}/${MAX_FAILS}) · ${elapsed()}`);
       continue;
@@ -2394,6 +2410,25 @@ async function falQueue(model, body, btnId, label, onStatus) {
 }
 
 // ── FAL DIRECT RUN (synchronous — for images, returns result immediately, no polling) ──
+// One-shot check for a request that falQueue gave up polling on — used by the in-app "Recover" button.
+// Never makes the user visit fal.ai directly; this does exactly that, inside the app.
+async function falCheckResult(model, requestId) {
+  const keys = getKeys();
+  if (!keys.fal) throw new Error('Add your FAL.ai key in Profile > API Keys');
+  const authHdr = { 'Authorization': 'Key ' + keys.fal };
+  const base = 'https://queue.fal.run/';
+  const statusRes = await fetch(`${base}${model}/requests/${requestId}/status`, { headers: authHdr });
+  if (statusRes.ok) {
+    const status = await statusRes.json();
+    if (status.status === 'FAILED') throw new Error(status.error || status.detail || 'Generation failed');
+    if (status.status !== 'COMPLETED') return { pending: true, status: status.status };
+  }
+  const resRes = await fetch(`${base}${model}/requests/${requestId}`, { headers: authHdr });
+  if (!resRes.ok) return { pending: true };
+  const result = await resRes.json();
+  return { pending: false, data: result.data ?? result.output ?? result };
+}
+
 async function falRun(model, body) {
   const keys = getKeys();
   if (!keys.fal) throw new Error('Add your FAL.ai key in Profile > API Keys');
@@ -3315,6 +3350,7 @@ const ariana = {
   bgMode: 'locked', bgUploadSrc: null, bgLockedText: '',
   selfieType: 'regular', makeup: 'glam',
   mood: '', extra: '', consistency: 90,
+  faceLock: true,
   model: 'fal-ai/nano-banana-pro/edit'
 };
 
@@ -3345,6 +3381,7 @@ async function loadArianaAssets() {
     if (lockedInput) lockedInput.value = ariana.bgLockedText;
     arianaRenderFacesGrid(); arianaRenderWardrobeGrid(); arianaRenderPoseGrid(); arianaRenderBgGrid();
     document.getElementById('ariana-results').innerHTML = '';
+    arianaCheckLeftoverPending();
   } catch (e) { console.warn('loadArianaAssets:', e); }
 }
 async function arianaSaveBgLocked(val) {
@@ -3621,6 +3658,18 @@ function arianaBuildPrompt(variationHint) {
     'Strict rules: no on-image text, no watermarks, no logos, no borders or frames. Photorealistic, natural lighting consistent with the scene.'
   ].filter(Boolean).join('\n\n');
 }
+// Post-generation correction pass: swaps her exact locked face onto the generated image,
+// so the final result matches the reference selfie even if the generation model drifted
+// (wrong skin tone, slightly different features, etc). Falls back silently to the original on failure.
+async function arianaFaceLockPass(generatedUrl) {
+  const faceRef = ariana.faces[0]?.url;
+  if (!faceRef) return null;
+  const out = await falQueue('easel-ai/advanced-face-swap', {
+    face_image_0: faceRef, gender_0: 'female',
+    target_image: generatedUrl, workflow_type: 'target_hair'
+  }, null, 'Locking face');
+  return out?.image?.url || null;
+}
 async function doArianaGenerate() {
   const btn = document.getElementById('ariana-btn');
   const err = document.getElementById('ariana-err');
@@ -3652,17 +3701,28 @@ async function doArianaGenerate() {
   for (let i = 0; i < batch; i++) {
     const hint = ARIANA_VARIATION_HINTS[i % ARIANA_VARIATION_HINTS.length];
     const prompt = arianaBuildPrompt(hint);
+    let submittedReqId = null;
     try {
       const out = await falQueue(ariana.model, {
         prompt, image_urls: imageUrls, num_images: 1,
         aspect_ratio: aspect, output_format: 'png', safety_tolerance: '4'
-      }, 'ariana-btn', `Generating ${i + 1}/${batch}`, txt => { liveStatus.innerHTML = txt; });
-      const url = out?.images?.[0]?.url;
+      }, 'ariana-btn', `Generating ${i + 1}/${batch}`,
+        txt => { liveStatus.innerHTML = txt; },
+        reqId => { submittedReqId = reqId; return arianaSavePending(reqId, ariana.model); });
+      let url = out?.images?.[0]?.url;
       if (!url) throw new Error('The safety filter blocked this result — try a different photo, pose, or wording.');
       anyOk = true;
+      if (ariana.faceLock && ariana.faces[0]?.url) {
+        liveStatus.innerHTML = '<div class="spin"></div> Locking in her face...';
+        try {
+          const swapped = await arianaFaceLockPass(url);
+          if (swapped) url = swapped;
+        } catch (e) { console.warn('Face lock pass failed, using original:', e); }
+      }
       arianaAppendResult(url, out?.description);
+      if (submittedReqId) arianaClearPending(submittedReqId);
     } catch (e) {
-      arianaAppendError(e.message || String(e), i + 1);
+      arianaAppendError(e.message || String(e), i + 1, e.requestId || submittedReqId, e.model || ariana.model);
     }
   }
   btn.disabled = false; btn.innerHTML = 'Generate';
@@ -3683,12 +3743,55 @@ function arianaAppendResult(url, description) {
     ${description ? `<div style="font-size:11px;color:var(--txt3);margin-top:4px">${esc(description)}</div>` : ''}`;
   wrap.appendChild(card);
 }
-function arianaAppendError(msg, n) {
+function arianaAppendError(msg, n, requestId, model) {
   const wrap = document.getElementById('ariana-results');
   const div = document.createElement('div');
   div.className = 'err'; div.style.display = 'block';
-  div.textContent = `Variation ${n}: ${msg}`;
+  const rid = 'arec-' + Math.random().toString(36).slice(2, 9);
+  div.innerHTML = `<span>Variation ${n}: ${esc(msg)}</span>` + (requestId
+    ? `<div style="margin-top:6px"><button class="ra" id="${rid}" onclick="arianaRecover('${rid}','${requestId}','${model}',${n})">Recover</button></div>`
+    : '');
   wrap.appendChild(div);
+}
+async function arianaSavePending(requestId, model) {
+  try { await sb.from('ariana_pending').upsert({ id: requestId, user_id: currentUser.id, model, created_at: new Date().toISOString() }, { onConflict: 'id' }); }
+  catch (_) {}
+}
+async function arianaClearPending(requestId) {
+  try { await sb.from('ariana_pending').delete().eq('id', requestId); } catch (_) {}
+}
+async function arianaCheckLeftoverPending() {
+  try {
+    const { data } = await sb.from('ariana_pending').select('*').eq('user_id', currentUser.id).order('created_at', { ascending: false }).limit(3);
+    if (!data || !data.length) return;
+    const wrap = document.getElementById('ariana-results');
+    data.forEach(p => {
+      const div = document.createElement('div');
+      div.className = 'err'; div.style.display = 'block';
+      const rid = 'arec-' + Math.random().toString(36).slice(2, 9);
+      div.innerHTML = `<span>An earlier generation didn't finish checking in this app (connection dropped, app closed, etc).</span><div style="margin-top:6px"><button class="ra" id="${rid}" onclick="arianaRecover('${rid}','${p.id}','${p.model}',0)">Recover it</button></div>`;
+      wrap.appendChild(div);
+    });
+  } catch (_) {}
+}
+async function arianaRecover(btnId, requestId, model, n) {
+  const btn = document.getElementById(btnId);
+  const orig = btn.textContent; btn.disabled = true; btn.innerHTML = '<div class="spin"></div> Checking...';
+  try {
+    const res = await falCheckResult(model, requestId);
+    if (res.pending) {
+      btn.disabled = false; btn.textContent = 'Still going — check again';
+      return;
+    }
+    const url = res.data?.images?.[0]?.url;
+    if (!url) { btn.disabled = false; btn.textContent = 'No image found — try again'; return; }
+    btn.closest('.err').remove();
+    arianaAppendResult(url, res.data?.description);
+    arianaClearPending(requestId);
+  } catch (e) {
+    btn.disabled = false; btn.textContent = 'Failed — retry';
+    alert('Recover failed: ' + (e.message || e));
+  }
 }
 async function arianaUpscale(imgId, btn) {
   const img = document.getElementById(imgId);
