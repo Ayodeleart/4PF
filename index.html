@@ -2347,21 +2347,27 @@ async function falQueue(model, body, btnId, label, onStatus, onSubmitted) {
     let status, ok = true;
     try {
       const res = await fetch(statusUrl, { headers: authHdr });
-      if (!res.ok) ok = false; else status = await res.json();
+      try { status = await res.json(); } catch (_) { status = null; }
+      if (!status || typeof status.status !== 'string') { ok = false; } // no usable body at all — real connection/parse issue
     } catch (_) { ok = false; }
 
     if (!ok) {
       failCount++;
       // Every few failures (and definitely before giving up), try the result directly —
-      // it may already be done and only the status endpoint is having trouble.
-      if (failCount % 5 === 0 || failCount >= MAX_FAILS) {
+      // it may already be done (or failed) and only the status endpoint is having trouble.
+      if (failCount <= 3 || failCount % 5 === 0 || failCount >= MAX_FAILS) {
+        let result = null;
         try {
           const resRes = await fetch(resultUrl, { headers: authHdr });
-          if (resRes.ok) {
-            const result = await resRes.json();
-            if (result && (result.images || result.data || result.output)) return result.data ?? result.output ?? result;
+          try { result = await resRes.json(); } catch (_) {}
+        } catch (_) { /* couldn't reach fal at all — fall through to normal retry/give-up below */ }
+        if (result) {
+          if (result.status === 'FAILED' || result.error || result.detail) {
+            const reason = result.error || result.detail || 'Generation failed';
+            throw new Error(typeof reason === 'string' ? reason : JSON.stringify(reason));
           }
-        } catch (_) {}
+          if (result.images || result.data || result.output) return result.data ?? result.output ?? result;
+        }
       }
       if (failCount >= MAX_FAILS) {
         const e = new Error(`Connection to fal dropped for a while (often a screen-lock/backgrounding pause) — this one couldn't finish on its own. Tap Recover to pick it back up, no need to leave the app.`);
