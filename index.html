@@ -2336,8 +2336,11 @@ async function falQueue(model, body, btnId, label, onStatus, onSubmitted) {
     throw new Error(String(msg));
   }
   const { request_id } = subData;
-  const statusUrl = `${base}${model}/requests/${request_id}/status?logs=1`;
-  const resultUrl = `${base}${model}/requests/${request_id}`;
+  // Use fal's own returned URLs — for sub-path models (e.g. fal-ai/nano-banana-pro/edit),
+  // the status/result URLs drop the sub-path, so rebuilding them from `model` gives a
+  // dead URL that never resolves even though the job completes fine on fal's side.
+  const statusUrl = subData.status_url ? `${subData.status_url}?logs=1` : `${base}${model}/requests/${request_id}/status?logs=1`;
+  const resultUrl = subData.response_url || `${base}${model}/requests/${request_id}`;
   if (onSubmitted) { try { await onSubmitted(request_id); } catch (_) {} }
 
   // ── 2. POLL STATUS ──
@@ -2448,13 +2451,17 @@ async function falCheckResult(model, requestId) {
   if (!keys.fal) throw new Error('Add your FAL.ai key in Profile > API Keys');
   const authHdr = { 'Authorization': 'Key ' + keys.fal };
   const base = 'https://queue.fal.run/';
-  const statusRes = await fetch(`${base}${model}/requests/${requestId}/status`, { headers: authHdr });
+  // Status/result endpoints live under the base model id (namespace/name), not the full
+  // submit path — a model like fal-ai/nano-banana-pro/edit must be checked as
+  // fal-ai/nano-banana-pro, or the request is dead on arrival even once fal has finished.
+  const baseModel = model.split('/').slice(0, 2).join('/');
+  const statusRes = await fetch(`${base}${baseModel}/requests/${requestId}/status`, { headers: authHdr });
   if (statusRes.ok) {
     const status = await statusRes.json();
     if (status.status === 'FAILED') throw new Error(status.error || status.detail || 'Generation failed');
     if (status.status !== 'COMPLETED') return { pending: true, status: status.status };
   }
-  const resRes = await fetch(`${base}${model}/requests/${requestId}`, { headers: authHdr });
+  const resRes = await fetch(`${base}${baseModel}/requests/${requestId}`, { headers: authHdr });
   if (!resRes.ok) return { pending: true };
   const result = await resRes.json();
   return { pending: false, data: result.data ?? result.output ?? result };
