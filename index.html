@@ -1076,12 +1076,13 @@ select.inp{cursor:pointer;appearance:none;background-image:url("data:image/svg+x
     <div class="sec">
       <label class="lbl">Quality</label>
       <div style="display:flex;gap:8px" id="ariana-quality-chips">
-        <button class="chip on" data-val="fal-ai/nano-banana/edit" onclick="pickChip(this,'ariana-quality-chips');ariana.model=this.dataset.val">Standard</button>
-        <button class="chip" data-val="fal-ai/nano-banana-pro/edit" onclick="pickChip(this,'ariana-quality-chips');ariana.model=this.dataset.val">Pro</button>
+        <button class="chip" data-val="fal-ai/nano-banana/edit" onclick="pickChip(this,'ariana-quality-chips');ariana.model=this.dataset.val">Standard</button>
+        <button class="chip on" data-val="fal-ai/nano-banana-pro/edit" onclick="pickChip(this,'ariana-quality-chips');ariana.model=this.dataset.val">Pro (recommended)</button>
       </div>
     </div>
 
     <button class="btn" id="ariana-btn" onclick="doArianaGenerate()" style="margin-top:10px">Generate</button>
+    <div id="ariana-live-status" style="font-size:12px;color:var(--txt3);margin-top:6px;display:none"></div>
     <div id="ariana-err" class="err"></div>
     <div id="ariana-results" style="display:flex;flex-direction:column;gap:12px;margin-top:14px"></div>
   </div>
@@ -2295,7 +2296,7 @@ async function toPublicUrl(src) {
 async function falUploadImage(dataUrl) { return toPublicUrl(dataUrl); }
 
 // ── FAL HELPER ──
-async function falQueue(model, body, btnId, label) {
+async function falQueue(model, body, btnId, label, onStatus) {
   const keys = getKeys();
   if (!keys.fal) throw new Error('Add your FAL.ai key in Profile > API Keys');
   const authHdr  = { 'Authorization': 'Key ' + keys.fal };
@@ -2303,7 +2304,7 @@ async function falQueue(model, body, btnId, label) {
   const btn = document.getElementById(btnId);
   const base = 'https://queue.fal.run/';
 
-  const setBtn = txt => { if (btn) btn.innerHTML = txt; };
+  const setBtn = txt => { if (btn) btn.innerHTML = txt; if (onStatus) onStatus(txt); };
 
   // ── 1. SUBMIT ──
   setBtn(`<div class="spin"></div> Submitting...`);
@@ -2326,16 +2327,35 @@ async function falQueue(model, body, btnId, label) {
   };
 
   let pollCount = 0;
-  while (pollCount < 360) { // 360 × 5s = 30 min max
+  let failCount = 0;
+  const MAX_FAILS = 8; // ~40s of failed status checks before giving up
+  while (pollCount < 360) { // up to 30 min of real progress, but fails fast on dead connections
     await new Promise(r => setTimeout(r, pollCount < 6 ? 3000 : 5000)); // faster at start
     pollCount++;
 
-    let status;
+    let status, ok = true;
     try {
       const res = await fetch(statusUrl, { headers: authHdr });
-      if (!res.ok) { setBtn(`<div class="spin"></div> ${label} · ${elapsed()}`); continue; }
-      status = await res.json();
-    } catch(_) { setBtn(`<div class="spin"></div> ${label} · ${elapsed()}`); continue; }
+      if (!res.ok) ok = false; else status = await res.json();
+    } catch (_) { ok = false; }
+
+    if (!ok) {
+      failCount++;
+      if (failCount >= MAX_FAILS) {
+        // Last resort: the request may already be done and only status checks are failing — try the result directly.
+        try {
+          const resRes = await fetch(resultUrl, { headers: authHdr });
+          if (resRes.ok) {
+            const result = await resRes.json();
+            if (result && (result.images || result.data || result.output)) return result.data ?? result.output ?? result;
+          }
+        } catch (_) {}
+        throw new Error(`Lost connection checking status after ${MAX_FAILS} retries (${elapsed()} in). Check your fal.ai dashboard — the image may already be done there.`);
+      }
+      setBtn(`<div class="spin"></div> Connection hiccup, retrying (${failCount}/${MAX_FAILS}) · ${elapsed()}`);
+      continue;
+    }
+    failCount = 0;
 
     if (status.status === 'FAILED') {
       const reason = status.error || status.detail || 'Generation failed';
@@ -2352,12 +2372,12 @@ async function falQueue(model, body, btnId, label) {
       // Show latest log line if available
       const logs = status.logs || [];
       const lastLog = logs.length ? logs[logs.length - 1].message : '';
-      const logSnip = lastLog ? ` · ${lastLog.slice(0, 40)}` : '';
+      const logSnip = lastLog ? ` · ${lastLog.slice(0, 40)}` : ' · model is processing';
       setBtn(`<div class="spin"></div> ${label}${logSnip} · ${elapsed()}`);
       continue;
     }
 
-    if (status.status === 'COMPLETED') break;
+    if (status.status === 'COMPLETED') { setBtn(`<div class="spin"></div> Fetching result · ${elapsed()}`); break; }
 
     setBtn(`<div class="spin"></div> ${label} · ${elapsed()}`);
   }
@@ -3295,7 +3315,7 @@ const ariana = {
   bgMode: 'locked', bgUploadSrc: null, bgLockedText: '',
   selfieType: 'regular', makeup: 'glam',
   mood: '', extra: '', consistency: 90,
-  model: 'fal-ai/nano-banana/edit'
+  model: 'fal-ai/nano-banana-pro/edit'
 };
 
 async function loadArianaAssets() {
@@ -3565,30 +3585,51 @@ function arianaBackgroundClause() {
   if (ariana.bgMode === 'pose') return 'Background: use whatever background appears in the pose reference image.';
   return '';
 }
+function arianaImageMap() {
+  let n = 0;
+  const lines = [];
+  const faceCount = ariana.faces.filter(f => f.url).length;
+  if (faceCount) {
+    const idxs = Array.from({ length: faceCount }, () => ++n);
+    lines.push(`Image${idxs.length > 1 ? 's' : ''} ${idxs.join(', ')}: her face — the ONLY source of who she is. Ignore any background, clothing, or hairstyle shown in ${idxs.length > 1 ? 'these photos' : 'this photo'}; they are identity references only.`);
+  }
+  const wardrobeCount = ariana.selectedWardrobe.length;
+  if (wardrobeCount) {
+    const idxs = Array.from({ length: wardrobeCount }, () => ++n);
+    lines.push(`Image${idxs.length > 1 ? 's' : ''} ${idxs.join(', ')}: the exact garment${idxs.length > 1 ? 's' : ''} she must wear — copy the cut, color, pattern, and fit precisely, do not redesign ${idxs.length > 1 ? 'them' : 'it'}.`);
+  }
+  let poseIdx = null;
+  if (ariana.selectedPoseUrl) { poseIdx = ++n; lines.push(`Image ${poseIdx}: pose/composition reference — copy the body pose and camera angle ONLY. Completely ignore the person, face, body, and clothing shown in this image.`); }
+  let bgIdx = null;
+  if ((ariana.bgMode === 'library' && ariana.selectedBgUrl) || (ariana.bgMode === 'upload' && ariana.bgUploadSrc)) { bgIdx = ++n; lines.push(`Image ${bgIdx}: background reference — composite her naturally into this exact setting, matching its lighting.`); }
+  return lines;
+}
 function arianaBuildPrompt(variationHint) {
-  const wardrobeNote = ariana.selectedWardrobe.length
-    ? 'She is wearing the exact garment(s) shown in the wardrobe reference image(s) — copy them precisely (cut, color, pattern, fit); do not redesign them.'
-    : 'Wardrobe: use tasteful, everyday clothing appropriate to the scene.';
-  const poseNote = ariana.selectedPoseUrl
-    ? 'Copy the body pose/composition from the pose reference image exactly — but NOT the person, face, or body shown in that image; her face and body must always come from the identity-lock selfies.'
-    : '';
+  const wardrobeNote = ariana.selectedWardrobe.length ? '' : 'Wardrobe: use tasteful, everyday clothing appropriate to the scene.';
+  const poseNote = ariana.selectedPoseUrl ? '' : '';
   const makeupNote = ariana.makeup === 'glam' ? 'Glam makeup, hair styled down.' : 'Bare face, no makeup, hair pulled back / packed up.';
+  const imageMap = arianaImageMap();
   return [
-    `IDENTITY LOCK (never changes): the person in this image is the same woman shown in the attached reference selfie image(s). ${arianaConsistencyDirective(ariana.consistency)}`,
+    imageMap.length ? `IMAGE MAP:\n${imageMap.join('\n')}` : '',
+    `IDENTITY LOCK (the single most important rule, never changes): generate the SAME woman as the face reference image(s) above. ${arianaConsistencyDirective(ariana.consistency)}`,
+    `Her body — match this exactly, do not slim, shrink, or reshape her: ${ARIANA_BODY_SPEC}`,
     `Persona: ${ARIANA_PERSONA_LINE}`,
-    `Body: ${ARIANA_BODY_SPEC}`,
-    `Scene: a ${ariana.selfieType} selfie-style photo. ${makeupNote} ${wardrobeNote} ${poseNote} ${arianaBackgroundClause()}`,
+    `Scene: a ${ariana.selfieType} selfie-style photo. ${makeupNote} ${wardrobeNote}${poseNote} ${arianaBackgroundClause()}`,
     ariana.mood ? `Mood: ${ariana.mood}.` : '',
     ariana.extra || '',
-    `Framing for this shot: ${variationHint} — vary ONLY the camera framing/crop/angle; the face, body, outfit, pose, and background must not change.`,
+    `Framing for this shot only: ${variationHint} — vary ONLY the camera framing/crop/angle; the face, body, outfit, pose, and background must stay exactly as specified above.`,
     'Strict rules: no on-image text, no watermarks, no logos, no borders or frames. Photorealistic, natural lighting consistent with the scene.'
-  ].filter(Boolean).join('\n');
+  ].filter(Boolean).join('\n\n');
 }
 async function doArianaGenerate() {
   const btn = document.getElementById('ariana-btn');
   const err = document.getElementById('ariana-err');
+  const liveStatus = document.getElementById('ariana-live-status');
   err.style.display = 'none'; err.textContent = '';
   if (!ariana.faces.length) { err.textContent = 'Upload at least one reference selfie first.'; err.style.display = 'block'; return; }
+  if (ariana.bgMode === 'pose' && !ariana.selectedPoseUrl) { err.textContent = 'Background is set to "Use pose background" but no pose image is selected — pick one in the Pose section, or switch background mode.'; err.style.display = 'block'; return; }
+  if (ariana.bgMode === 'library' && !ariana.selectedBgUrl) { err.textContent = 'Background is set to Library but no background image is selected — pick one, or switch mode.'; err.style.display = 'block'; return; }
+  if (ariana.bgMode === 'upload' && !ariana.bgUploadSrc) { err.textContent = 'Background is set to Upload but no photo has been uploaded yet.'; err.style.display = 'block'; return; }
 
   await arianaRefreshFaceUrls();
 
@@ -3606,6 +3647,7 @@ async function doArianaGenerate() {
   const batch = +document.getElementById('ariana-batch').value;
 
   btn.disabled = true;
+  liveStatus.style.display = 'block';
   let anyOk = false;
   for (let i = 0; i < batch; i++) {
     const hint = ARIANA_VARIATION_HINTS[i % ARIANA_VARIATION_HINTS.length];
@@ -3614,19 +3656,20 @@ async function doArianaGenerate() {
       const out = await falQueue(ariana.model, {
         prompt, image_urls: imageUrls, num_images: 1,
         aspect_ratio: aspect, output_format: 'png', safety_tolerance: '4'
-      }, 'ariana-btn', `Generating ${i + 1}/${batch}`);
+      }, 'ariana-btn', `Generating ${i + 1}/${batch}`, txt => { liveStatus.innerHTML = txt; });
       const url = out?.images?.[0]?.url;
       if (!url) throw new Error('The safety filter blocked this result — try a different photo, pose, or wording.');
       anyOk = true;
-      arianaAppendResult(url);
+      arianaAppendResult(url, out?.description);
     } catch (e) {
       arianaAppendError(e.message || String(e), i + 1);
     }
   }
   btn.disabled = false; btn.innerHTML = 'Generate';
+  liveStatus.style.display = 'none'; liveStatus.innerHTML = '';
   if (!anyOk) { err.textContent = 'All variations failed — see notes below.'; err.style.display = 'block'; }
 }
-function arianaAppendResult(url) {
+function arianaAppendResult(url, description) {
   const wrap = document.getElementById('ariana-results');
   const id = 'ares-' + Math.random().toString(36).slice(2, 9);
   const card = document.createElement('div');
@@ -3636,7 +3679,8 @@ function arianaAppendResult(url) {
       <button class="ra" onclick="arianaUpscale('${id}', this)">Upscale 8K</button>
       <button class="ra" onclick="saveLibClick(this,'image',document.getElementById('${id}').src,'')">Save to Library</button>
       <button class="ra" onclick="dlFileSafe(document.getElementById('${id}').src,'ariana.jpg')">Save to Device</button>
-    </div>`;
+    </div>
+    ${description ? `<div style="font-size:11px;color:var(--txt3);margin-top:4px">${esc(description)}</div>` : ''}`;
   wrap.appendChild(card);
 }
 function arianaAppendError(msg, n) {
