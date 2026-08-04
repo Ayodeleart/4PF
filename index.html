@@ -2414,15 +2414,30 @@ async function falQueue(model, body, btnId, label, onStatus, onSubmitted) {
     setBtn(`<div class="spin"></div> ${label} · ${elapsed()}`);
   }
 
-  // ── 3. FETCH RESULT ──
-  const resRes = await fetch(resultUrl, { headers: authHdr });
-  if (!resRes.ok) {
-    const errData = await resRes.json().catch(() => ({}));
-    throw new Error(errData.detail || errData.error || `Result fetch failed (${resRes.status})`);
+  // ── 3. FETCH RESULT (with retries — this is the exact step that was failing silently before) ──
+  let lastErr = null;
+  for (let attempt = 0; attempt < 6; attempt++) {
+    if (attempt > 0) { setBtn(`<div class="spin"></div> Fetching result, retry ${attempt}/5...`); await new Promise(r => setTimeout(r, 2000)); }
+    try {
+      const resRes = await fetch(resultUrl, { headers: authHdr });
+      let result = null;
+      try { result = await resRes.json(); } catch (_) {}
+      if (result) {
+        if (result.status === 'FAILED' || (!resRes.ok && (result.error || result.detail) && !result.images && !result.data && !result.output)) {
+          const reason = result.error || result.detail || 'Generation failed';
+          const failErr = new Error(typeof reason === 'string' ? reason : JSON.stringify(reason));
+          failErr.isGenerationFailure = true;
+          throw failErr;
+        }
+        return result.data ?? result.output ?? result;
+      }
+      lastErr = new Error(`Result fetch returned no readable data (HTTP ${resRes.status})`);
+    } catch (e) {
+      if (e.isGenerationFailure) throw e; // a real, final FAILED reason from fal — surface immediately, don't waste retries
+      lastErr = e; // network hiccup or parse issue — worth retrying
+    }
   }
-  const result = await resRes.json();
-  // Unwrap fal envelope
-  return result.data ?? result.output ?? result;
+  throw lastErr || new Error('Could not fetch the finished result after several tries.');
 }
 
 // ── FAL DIRECT RUN (synchronous — for images, returns result immediately, no polling) ──
