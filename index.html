@@ -999,6 +999,13 @@ select.inp{cursor:pointer;appearance:none;background-image:url("data:image/svg+x
       </div>
     </div>
 
+    <!-- HAIRSTYLE -->
+    <div class="sec">
+      <label class="lbl">Hairstyle <span style="color:var(--txt3);font-weight:400">— optional, uses her locked face either way</span></label>
+      <div id="ariana-hair-grid" style="display:flex;gap:8px;flex-wrap:wrap"></div>
+      <input type="file" id="ariana-hair-file" accept="image/*" hidden multiple onchange="arianaUploadHairstyle(this)">
+    </div>
+
     <!-- WARDROBE -->
     <div class="sec">
       <label class="lbl">Wardrobe <span style="color:var(--txt3);font-weight:400">— pick up to 3, copied garment-exactly</span></label>
@@ -1327,6 +1334,7 @@ select.inp{cursor:pointer;appearance:none;background-image:url("data:image/svg+x
  create table ariana_backgrounds (id text primary key, user_id text not null, url text not null, created_at timestamptz default now());
  create table ariana_settings (user_id text primary key, locked_background text, updated_at timestamptz default now());
  create table ariana_pending (id text primary key, user_id text not null, model text not null, created_at timestamptz default now());
+ create table ariana_hairstyles (id text primary key, user_id text not null, url text not null, created_at timestamptz default now());
 
  alter table ariana_faces enable row level security;
  alter table ariana_wardrobe enable row level security;
@@ -1334,12 +1342,14 @@ select.inp{cursor:pointer;appearance:none;background-image:url("data:image/svg+x
  alter table ariana_backgrounds enable row level security;
  alter table ariana_settings enable row level security;
  alter table ariana_pending enable row level security;
+ alter table ariana_hairstyles enable row level security;
  create policy "own rows" on ariana_faces for all using (user_id = auth.uid()::text) with check (user_id = auth.uid()::text);
  create policy "own rows" on ariana_wardrobe for all using (user_id = auth.uid()::text) with check (user_id = auth.uid()::text);
  create policy "own rows" on ariana_poses for all using (user_id = auth.uid()::text) with check (user_id = auth.uid()::text);
  create policy "own rows" on ariana_backgrounds for all using (user_id = auth.uid()::text) with check (user_id = auth.uid()::text);
  create policy "own rows" on ariana_settings for all using (user_id = auth.uid()::text) with check (user_id = auth.uid()::text);
  create policy "own rows" on ariana_pending for all using (user_id = auth.uid()::text) with check (user_id = auth.uid()::text);
+ create policy "own rows" on ariana_hairstyles for all using (user_id = auth.uid()::text) with check (user_id = auth.uid()::text);
 
  STORAGE POLICIES (ariana-faces bucket — private):
  create policy "own files read" on storage.objects for select using (bucket_id = 'ariana-faces' and (storage.foldername(name))[1] = auth.uid()::text);
@@ -3350,7 +3360,8 @@ const ariana = {
   faces: [],                                   // [{id, path, url}] — up to 4, always attached
   wardrobeTab: 'everyday',
   wardrobe: { everyday: [], bikini: [] },
-  selectedWardrobe: [],                        // up to 3 per generation
+  selectedWardrobe: [],
+  hairstyles: [], selectedHairstyleUrl: null,                        // up to 3 per generation
   poses: [], selectedPoseUrl: null,
   backgrounds: [], selectedBgUrl: null,
   bgMode: 'locked', bgUploadSrc: null, bgLockedText: '',
@@ -3363,12 +3374,13 @@ const ariana = {
 async function loadArianaAssets() {
   if (!currentUser) return;
   try {
-    const [{ data: faces }, { data: wardrobe }, { data: poses }, { data: bgs }, { data: settings }] = await Promise.all([
+    const [{ data: faces }, { data: wardrobe }, { data: poses }, { data: bgs }, { data: settings }, { data: hair }] = await Promise.all([
       sb.from('ariana_faces').select('*').eq('user_id', currentUser.id).order('created_at'),
       sb.from('ariana_wardrobe').select('*').eq('user_id', currentUser.id).order('created_at'),
       sb.from('ariana_poses').select('*').eq('user_id', currentUser.id).order('created_at'),
       sb.from('ariana_backgrounds').select('*').eq('user_id', currentUser.id).order('created_at'),
-      sb.from('ariana_settings').select('*').eq('user_id', currentUser.id).maybeSingle()
+      sb.from('ariana_settings').select('*').eq('user_id', currentUser.id).maybeSingle(),
+      sb.from('ariana_hairstyles').select('*').eq('user_id', currentUser.id).order('created_at')
     ]);
     ariana.faces = [];
     for (const f of (faces || [])) {
@@ -3381,11 +3393,12 @@ async function loadArianaAssets() {
     };
     ariana.poses = poses || [];
     ariana.backgrounds = bgs || [];
-    ariana.selectedWardrobe = []; ariana.selectedPoseUrl = null; ariana.selectedBgUrl = null;
+    ariana.hairstyles = hair || [];
+    ariana.selectedWardrobe = []; ariana.selectedPoseUrl = null; ariana.selectedBgUrl = null; ariana.selectedHairstyleUrl = null;
     ariana.bgLockedText = settings?.locked_background || '';
     const lockedInput = document.getElementById('ariana-bg-locked-text');
     if (lockedInput) lockedInput.value = ariana.bgLockedText;
-    arianaRenderFacesGrid(); arianaRenderWardrobeGrid(); arianaRenderPoseGrid(); arianaRenderBgGrid();
+    arianaRenderFacesGrid(); arianaRenderWardrobeGrid(); arianaRenderHairstyleGrid(); arianaRenderPoseGrid(); arianaRenderBgGrid();
     document.getElementById('ariana-results').innerHTML = '';
     arianaCheckLeftoverPending();
   } catch (e) { console.warn('loadArianaAssets:', e); }
@@ -3526,6 +3539,45 @@ async function arianaUploadWardrobe(inp) {
   inp.value = '';
 }
 
+// ── HAIRSTYLE (optional) ──
+function arianaRenderHairstyleGrid() {
+  const grid = document.getElementById('ariana-hair-grid');
+  let html = ariana.hairstyles.map(h => {
+    const sel = ariana.selectedHairstyleUrl === h.url;
+    return `<div onclick="arianaSelectHairstyle('${h.id}')" style="position:relative;width:64px;height:64px;cursor:pointer">
+      <img src="${esc(h.url)}" style="width:64px;height:64px;object-fit:cover;border-radius:8px;border:2px solid ${sel ? 'var(--acc)' : 'var(--bdr)'}">
+    </div>`;
+  }).join('');
+  html += arianaAddTile("document.getElementById('ariana-hair-file').click()");
+  grid.innerHTML = html;
+}
+function arianaSelectHairstyle(id) {
+  const h = ariana.hairstyles.find(x => x.id === id); if (!h) return;
+  ariana.selectedHairstyleUrl = (ariana.selectedHairstyleUrl === h.url) ? null : h.url;
+  arianaRenderHairstyleGrid();
+}
+async function arianaUploadHairstyle(inp) {
+  const files = Array.from(inp.files || []); if (!files.length) return;
+  let failed = 0;
+  for (let i = 0; i < files.length; i++) {
+    try {
+      const dataUrl = await readFileAsDataUrl(files[i]);
+      const jpeg = await normaliseToJpeg(dataUrl);
+      const blob = await (await fetch(jpeg)).blob();
+      const path = `ariana/hairstyles/${currentUser.id}/${Date.now()}_${i}.jpg`;
+      const { error: upErr } = await sb.storage.from('octopusfur-media').upload(path, blob, { contentType: 'image/jpeg', upsert: true });
+      if (upErr) throw upErr;
+      const { data } = sb.storage.from('octopusfur-media').getPublicUrl(path);
+      const id = Date.now().toString() + '_' + i;
+      await sb.from('ariana_hairstyles').insert({ id, user_id: currentUser.id, url: data.publicUrl });
+      ariana.hairstyles.push({ id, url: data.publicUrl });
+      arianaRenderHairstyleGrid();
+    } catch (err) { failed++; console.warn('Hairstyle upload failed:', err); }
+  }
+  if (failed) alert(`${failed} of ${files.length} hairstyle photo(s) failed to upload — try those again.`);
+  inp.value = '';
+}
+
 // ── POSE ──
 function arianaRenderPoseGrid() {
   const grid = document.getElementById('ariana-pose-grid');
@@ -3641,26 +3693,35 @@ function arianaImageMap() {
     const idxs = Array.from({ length: wardrobeCount }, () => ++n);
     lines.push(`Image${idxs.length > 1 ? 's' : ''} ${idxs.join(', ')}: the exact garment${idxs.length > 1 ? 's' : ''} she must wear — copy the cut, color, pattern, and fit precisely, do not redesign ${idxs.length > 1 ? 'them' : 'it'}.`);
   }
+  let hairIdx = null;
+  if (ariana.selectedHairstyleUrl) { hairIdx = ++n; lines.push(`Image ${hairIdx}: hairstyle reference — copy this exact hairstyle (cut, length, texture, style) onto her. Ignore the face/body/person shown in this image.`); }
   let poseIdx = null;
-  if (ariana.selectedPoseUrl) { poseIdx = ++n; lines.push(`Image ${poseIdx}: pose/composition reference — copy the body pose and camera angle ONLY. Completely ignore the person, face, body, and clothing shown in this image.`); }
+  if (ariana.selectedPoseUrl) { poseIdx = ++n; lines.push(`Image ${poseIdx}: pose/composition/framing reference — copy the body pose, camera distance, crop, and angle EXACTLY, including how much of the body is shown (if it's a full-body shot, the output must also be full-body — do not zoom in or crop tighter). Completely ignore the person, face, body, and clothing shown in this image.`); }
   let bgIdx = null;
   if ((ariana.bgMode === 'library' && ariana.selectedBgUrl) || (ariana.bgMode === 'upload' && ariana.bgUploadSrc)) { bgIdx = ++n; lines.push(`Image ${bgIdx}: background reference — composite her naturally into this exact setting, matching its lighting.`); }
   return lines;
 }
 function arianaBuildPrompt(variationHint) {
   const wardrobeNote = ariana.selectedWardrobe.length ? '' : 'Wardrobe: use tasteful, everyday clothing appropriate to the scene.';
-  const poseNote = ariana.selectedPoseUrl ? '' : '';
-  const makeupNote = ariana.makeup === 'glam' ? 'Glam makeup, hair styled down.' : 'Bare face, no makeup, hair pulled back / packed up.';
+  const hasPose = !!ariana.selectedPoseUrl;
+  const hasHairRef = !!ariana.selectedHairstyleUrl;
+  const makeupNote = ariana.makeup === 'glam'
+    ? `Glam makeup.${hasHairRef ? '' : ' Hair styled down.'}`
+    : `Bare face, no makeup.${hasHairRef ? '' : ' Hair pulled back / packed up.'}`;
+  const hairNote = hasHairRef ? 'Use the exact hairstyle from the hairstyle reference image.' : '';
   const imageMap = arianaImageMap();
+  const framingLine = hasPose
+    ? 'Framing: use the EXACT framing, crop, and camera distance from the pose reference image — full body stays full body, do not zoom in, do not crop tighter than the pose reference.'
+    : `Framing for this shot only: ${variationHint} — vary ONLY the camera framing/crop/angle; the face, body, outfit, and background must stay exactly as specified above.`;
   return [
     imageMap.length ? `IMAGE MAP:\n${imageMap.join('\n')}` : '',
     `IDENTITY LOCK (the single most important rule, never changes): generate the SAME woman as the face reference image(s) above. ${arianaConsistencyDirective(ariana.consistency)}`,
     `Her body — match this exactly, do not slim, shrink, or reshape her: ${ARIANA_BODY_SPEC}`,
     `Persona: ${ARIANA_PERSONA_LINE}`,
-    `Scene: a ${ariana.selfieType} selfie-style photo. ${makeupNote} ${wardrobeNote}${poseNote} ${arianaBackgroundClause()}`,
+    `Scene: a ${ariana.selfieType} selfie-style photo. ${makeupNote} ${hairNote} ${wardrobeNote} ${arianaBackgroundClause()}`,
     ariana.mood ? `Mood: ${ariana.mood}.` : '',
     ariana.extra || '',
-    `Framing for this shot only: ${variationHint} — vary ONLY the camera framing/crop/angle; the face, body, outfit, pose, and background must stay exactly as specified above.`,
+    framingLine,
     'Strict rules: no on-image text, no watermarks, no logos, no borders or frames. Photorealistic, natural lighting consistent with the scene.'
   ].filter(Boolean).join('\n\n');
 }
@@ -3690,6 +3751,7 @@ async function doArianaGenerate() {
 
   const imageUrls = ariana.faces.map(f => f.url).filter(Boolean);
   ariana.selectedWardrobe.forEach(w => imageUrls.push(w.url));
+  if (ariana.selectedHairstyleUrl) imageUrls.push(ariana.selectedHairstyleUrl);
   if (ariana.selectedPoseUrl) imageUrls.push(ariana.selectedPoseUrl);
   if (ariana.bgMode === 'library' && ariana.selectedBgUrl) imageUrls.push(ariana.selectedBgUrl);
   if (ariana.bgMode === 'upload' && ariana.bgUploadSrc) imageUrls.push(await toPublicUrl(ariana.bgUploadSrc));
