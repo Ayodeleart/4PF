@@ -3313,6 +3313,27 @@ async function saveLibClick(btn, type, url, prompt) {
 async function deleteLibItem(id) { await sb.from('library_items').delete().eq('id', id); libItems = libItems.filter(i => i.id !== id); renderLibrary(); }
 
 // ── UTILS ──
+// Faster path when we already have a loaded <img> on screen (e.g. Ariana results): drawing from
+// the already-decoded image avoids a second network round-trip, which was eating the brief window
+// iOS gives JS to call navigator.share() after a tap — that delay is why "Save to Device" was
+// silently falling back to the long-press hint instead of opening the share sheet.
+async function dlFileFromImgSafe(imgId, name) {
+  const img = document.getElementById(imgId);
+  if (!img) return;
+  try {
+    if (img.decode) await img.decode();
+    const canvas = document.createElement('canvas');
+    canvas.width = img.naturalWidth || img.width;
+    canvas.height = img.naturalHeight || img.height;
+    canvas.getContext('2d').drawImage(img, 0, 0);
+    const blob = await new Promise(resolve => canvas.toBlob(resolve, 'image/jpeg', 0.95));
+    if (!blob) throw new Error('canvas produced no blob');
+    const ok = await saveBlobSafe(blob, name);
+    if (!ok) showLongPressHint();
+  } catch (e) {
+    await dlFileSafe(img.src, name); // canvas path failed (e.g. tainted canvas) — fall back to the fetch-based method
+  }
+}
 async function saveBlobSafe(blob, name) {
   try {
     const file = new File([blob], name, { type: blob.type || 'application/octet-stream' });
@@ -3515,6 +3536,7 @@ function arianaRenderWardrobeGrid() {
     return `<div onclick="arianaToggleWardrobe('${w.id}')" style="position:relative;width:64px;height:64px;cursor:pointer">
       <img src="${esc(w.url)}" style="width:64px;height:64px;object-fit:cover;border-radius:8px;border:2px solid ${sel ? 'var(--acc)' : 'var(--bdr)'}">
       ${sel ? '<div style="position:absolute;top:2px;right:2px;width:16px;height:16px;border-radius:50%;background:var(--acc);color:#fff;font-size:10px;display:flex;align-items:center;justify-content:center">✓</div>' : ''}
+      <button onclick="event.stopPropagation();arianaDeleteWardrobe('${w.id}')" style="position:absolute;top:-6px;left:-6px;width:18px;height:18px;border-radius:50%;background:var(--s3);border:1px solid var(--bdr2);font-size:11px;line-height:1;color:var(--txt2);cursor:pointer">×</button>
     </div>`;
   }).join('');
   html += arianaAddTile("document.getElementById('ariana-wardrobe-file').click()");
@@ -3528,6 +3550,13 @@ function arianaToggleWardrobe(id) {
     const w = ariana.wardrobe[ariana.wardrobeTab].find(x => x.id === id);
     if (w) ariana.selectedWardrobe.push(w);
   }
+  arianaRenderWardrobeGrid();
+}
+async function arianaDeleteWardrobe(id) {
+  try { await sb.from('ariana_wardrobe').delete().eq('id', id); } catch (_) {}
+  const cat = ariana.wardrobeTab;
+  ariana.wardrobe[cat] = ariana.wardrobe[cat].filter(x => x.id !== id);
+  ariana.selectedWardrobe = ariana.selectedWardrobe.filter(x => x.id !== id);
   arianaRenderWardrobeGrid();
 }
 function readFileAsDataUrl(file) {
@@ -3568,10 +3597,18 @@ function arianaRenderHairstyleGrid() {
     const sel = ariana.selectedHairstyleUrl === h.url;
     return `<div onclick="arianaSelectHairstyle('${h.id}')" style="position:relative;width:64px;height:64px;cursor:pointer">
       <img src="${esc(h.url)}" style="width:64px;height:64px;object-fit:cover;border-radius:8px;border:2px solid ${sel ? 'var(--acc)' : 'var(--bdr)'}">
+      <button onclick="event.stopPropagation();arianaDeleteHairstyle('${h.id}')" style="position:absolute;top:-6px;left:-6px;width:18px;height:18px;border-radius:50%;background:var(--s3);border:1px solid var(--bdr2);font-size:11px;line-height:1;color:var(--txt2);cursor:pointer">×</button>
     </div>`;
   }).join('');
   html += arianaAddTile("document.getElementById('ariana-hair-file').click()");
   grid.innerHTML = html;
+}
+async function arianaDeleteHairstyle(id) {
+  try { await sb.from('ariana_hairstyles').delete().eq('id', id); } catch (_) {}
+  const h = ariana.hairstyles.find(x => x.id === id);
+  if (h && ariana.selectedHairstyleUrl === h.url) ariana.selectedHairstyleUrl = null;
+  ariana.hairstyles = ariana.hairstyles.filter(x => x.id !== id);
+  arianaRenderHairstyleGrid();
 }
 function arianaSelectHairstyle(id) {
   const h = ariana.hairstyles.find(x => x.id === id); if (!h) return;
@@ -3607,10 +3644,18 @@ function arianaRenderPoseGrid() {
     const sel = ariana.selectedPoseUrl === p.url;
     return `<div onclick="arianaSelectPose('${p.id}')" style="position:relative;width:64px;height:64px;cursor:pointer">
       <img src="${esc(p.url)}" style="width:64px;height:64px;object-fit:cover;border-radius:8px;border:2px solid ${sel ? 'var(--acc)' : 'var(--bdr)'}">
+      <button onclick="event.stopPropagation();arianaDeletePose('${p.id}')" style="position:absolute;top:-6px;left:-6px;width:18px;height:18px;border-radius:50%;background:var(--s3);border:1px solid var(--bdr2);font-size:11px;line-height:1;color:var(--txt2);cursor:pointer">×</button>
     </div>`;
   }).join('');
   html += arianaAddTile("document.getElementById('ariana-pose-file').click()");
   grid.innerHTML = html;
+}
+async function arianaDeletePose(id) {
+  try { await sb.from('ariana_poses').delete().eq('id', id); } catch (_) {}
+  const p = ariana.poses.find(x => x.id === id);
+  if (p && ariana.selectedPoseUrl === p.url) ariana.selectedPoseUrl = null;
+  ariana.poses = ariana.poses.filter(x => x.id !== id);
+  arianaRenderPoseGrid();
 }
 function arianaSelectPose(id) {
   const p = ariana.poses.find(x => x.id === id); if (!p) return;
@@ -3653,10 +3698,18 @@ function arianaRenderBgGrid() {
     const sel = ariana.selectedBgUrl === b.url;
     return `<div onclick="arianaSelectBg('${b.id}')" style="position:relative;width:64px;height:64px;cursor:pointer">
       <img src="${esc(b.url)}" style="width:64px;height:64px;object-fit:cover;border-radius:8px;border:2px solid ${sel ? 'var(--acc)' : 'var(--bdr)'}">
+      <button onclick="event.stopPropagation();arianaDeleteBg('${b.id}')" style="position:absolute;top:-6px;left:-6px;width:18px;height:18px;border-radius:50%;background:var(--s3);border:1px solid var(--bdr2);font-size:11px;line-height:1;color:var(--txt2);cursor:pointer">×</button>
     </div>`;
   }).join('');
   html += arianaAddTile("document.getElementById('ariana-bg-file').click()");
   grid.innerHTML = html;
+}
+async function arianaDeleteBg(id) {
+  try { await sb.from('ariana_backgrounds').delete().eq('id', id); } catch (_) {}
+  const b = ariana.backgrounds.find(x => x.id === id);
+  if (b && ariana.selectedBgUrl === b.url) ariana.selectedBgUrl = null;
+  ariana.backgrounds = ariana.backgrounds.filter(x => x.id !== id);
+  arianaRenderBgGrid();
 }
 function arianaSelectBg(id) {
   const b = ariana.backgrounds.find(x => x.id === id); if (!b) return;
@@ -3718,7 +3771,7 @@ function arianaImageMap() {
   let hairIdx = null;
   if (ariana.selectedHairstyleUrl) { hairIdx = ++n; lines.push(`Image ${hairIdx}: hairstyle reference — copy this exact hairstyle (cut, length, texture, style) onto her. Ignore the face/body/person shown in this image.`); }
   let poseIdx = null;
-  if (ariana.selectedPoseUrl) { poseIdx = ++n; lines.push(`Image ${poseIdx}: pose/composition/framing reference — copy the body pose, camera distance, crop, and angle EXACTLY, including how much of the body is shown (if it's a full-body shot, the output must also be full-body — do not zoom in or crop tighter). Completely ignore the person, face, body, and clothing shown in this image.`); }
+  if (ariana.selectedPoseUrl) { poseIdx = ++n; lines.push(`Image ${poseIdx}: pose/composition/framing reference — copy the body pose (including whether she is sitting, lying, standing, or leaning), camera distance, crop, and angle EXACTLY, including how much of the body is shown (if it's a full-body shot, the output must also be full-body — do not zoom in or crop tighter). Completely ignore the person, face, body, and clothing shown in this image.`); }
   let bgIdx = null;
   if ((ariana.bgMode === 'library' && ariana.selectedBgUrl) || (ariana.bgMode === 'upload' && ariana.bgUploadSrc)) { bgIdx = ++n; lines.push(`Image ${bgIdx}: background reference — composite her naturally into this exact setting, matching its lighting.`); }
   return lines;
@@ -3733,8 +3786,9 @@ function arianaBuildPrompt(variationHint) {
   const hairNote = hasHairRef ? 'Use the exact hairstyle from the hairstyle reference image.' : '';
   const imageMap = arianaImageMap();
   const framingLine = hasPose
-    ? 'Framing: use the EXACT framing, crop, and camera distance from the pose reference image — full body stays full body, do not zoom in, do not crop tighter than the pose reference.'
+    ? 'Framing AND pose (strict): reproduce the pose reference image\'s exact body position (sitting/lying/standing/leaning — whatever it shows), exact framing, crop, and camera distance. If she is sitting in the reference, she is sitting in the output — never change a sitting/lying pose to standing or vice versa. Full body stays full body, do not zoom in or crop tighter than the pose reference.'
     : `Framing for this shot only: ${variationHint} — vary ONLY the camera framing/crop/angle; the face, body, outfit, and background must stay exactly as specified above.`;
+  const realismLine = 'Realism (important): this must look like a genuine, unedited iPhone selfie, not an AI image — natural asymmetry, real skin texture with visible pores and minor imperfections, authentic uneven phone-camera lighting, no airbrushing, no glossy/plastic skin, no overly perfect symmetry, no digital-art or 3D-render look.';
   return [
     imageMap.length ? `IMAGE MAP:\n${imageMap.join('\n')}` : '',
     `IDENTITY LOCK (the single most important rule, never changes): generate the SAME woman as the face reference image(s) above. ${arianaConsistencyDirective(ariana.consistency)}`,
@@ -3744,6 +3798,7 @@ function arianaBuildPrompt(variationHint) {
     ariana.mood ? `Mood: ${ariana.mood}.` : '',
     ariana.extra || '',
     framingLine,
+    realismLine,
     'Strict rules: no on-image text, no watermarks, no logos, no borders or frames. Photorealistic, natural lighting consistent with the scene.'
   ].filter(Boolean).join('\n\n');
 }
@@ -3830,7 +3885,7 @@ function arianaAppendResult(url, description, faceLockNote) {
     <div class="res-actions">
       <button class="ra" onclick="arianaUpscale('${id}', this)">Upscale 8K</button>
       <button class="ra" onclick="saveLibClick(this,'image',document.getElementById('${id}').src,'')">Save to Library</button>
-      <button class="ra" onclick="dlFileSafe(document.getElementById('${id}').src,'ariana.jpg')">Save to Device</button>
+      <button class="ra" onclick="dlFileFromImgSafe('${id}','ariana.jpg')">Save to Device</button>
     </div>
     ${faceLockNote ? `<div style="font-size:11px;color:#c0392b;margin-top:4px">${esc(faceLockNote)}</div>` : ''}
     ${description ? `<div style="font-size:11px;color:var(--txt3);margin-top:4px">${esc(description)}</div>` : ''}`;
