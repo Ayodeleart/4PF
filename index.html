@@ -3771,7 +3771,7 @@ function arianaImageMap() {
   let hairIdx = null;
   if (ariana.selectedHairstyleUrl) { hairIdx = ++n; lines.push(`Image ${hairIdx}: hairstyle reference — copy this exact hairstyle (cut, length, texture, style) onto her. Ignore the face/body/person shown in this image.`); }
   let poseIdx = null;
-  if (ariana.selectedPoseUrl) { poseIdx = ++n; lines.push(`Image ${poseIdx}: pose/composition/framing reference — copy the body pose (including whether she is sitting, lying, standing, or leaning), camera distance, crop, and angle EXACTLY, including how much of the body is shown (if it's a full-body shot, the output must also be full-body — do not zoom in or crop tighter). Completely ignore the person, face, body, and clothing shown in this image.`); }
+  if (ariana.selectedPoseUrl) { poseIdx = ++n; lines.push(`Image ${poseIdx}: pose reference — a black-and-white edge/line map (not a photo) showing ONLY her body position, including whether she is sitting, lying, standing, or leaning, plus camera distance, crop, and angle. Reproduce this exact body position and framing. It contains no skin, face, or identity data by design — do not try to infer a person's appearance from it.`); }
   let bgIdx = null;
   if ((ariana.bgMode === 'library' && ariana.selectedBgUrl) || (ariana.bgMode === 'upload' && ariana.bgUploadSrc)) { bgIdx = ++n; lines.push(`Image ${bgIdx}: background reference — composite her naturally into this exact setting, matching its lighting.`); }
   return lines;
@@ -3805,6 +3805,13 @@ function arianaBuildPrompt(variationHint) {
 // Post-generation correction pass: swaps her exact locked face onto the generated image,
 // so the final result matches the reference selfie even if the generation model drifted
 // (wrong skin tone, slightly different features, etc). Falls back silently to the original on failure.
+// Strips the pose reference to a black-and-white edge/line map before generation — removes skin tone,
+// tattoos, and body shape from the pose photo so they can't leak into the output. Falls back to the
+// original photo (with a console warning) if the preprocessor call fails, rather than blocking generation.
+async function arianaPoseCleanRef(url) {
+  const out = await falQueue('fal-ai/image-preprocessors/canny', { image_url: url }, null, 'Cleaning pose reference');
+  return out?.image?.url || url;
+}
 async function arianaFaceLockPass(generatedUrl) {
   const faceRef = ariana.faces[0]?.url;
   if (!faceRef) return null;
@@ -3827,10 +3834,20 @@ async function doArianaGenerate() {
 
   await arianaRefreshFaceUrls();
 
+  // Strip the pose reference down to a line/edge map before it ever reaches the generation model —
+  // this is what stops her skin tone, tattoos, and body shape leaking in from whoever is in that photo.
+  let poseImageUrl = ariana.selectedPoseUrl;
+  if (poseImageUrl) {
+    liveStatus.style.display = 'block';
+    liveStatus.innerHTML = '<div class="spin"></div> Preparing pose reference...';
+    try { poseImageUrl = await arianaPoseCleanRef(poseImageUrl); }
+    catch (e) { console.warn('Pose cleaning failed, using original photo (may leak appearance from the pose reference):', e); }
+  }
+
   const imageUrls = ariana.faces.map(f => f.url).filter(Boolean);
   ariana.selectedWardrobe.forEach(w => imageUrls.push(w.url));
   if (ariana.selectedHairstyleUrl) imageUrls.push(ariana.selectedHairstyleUrl);
-  if (ariana.selectedPoseUrl) imageUrls.push(ariana.selectedPoseUrl);
+  if (poseImageUrl) imageUrls.push(poseImageUrl);
   if (ariana.bgMode === 'library' && ariana.selectedBgUrl) imageUrls.push(ariana.selectedBgUrl);
   if (ariana.bgMode === 'upload' && ariana.bgUploadSrc) imageUrls.push(await toPublicUrl(ariana.bgUploadSrc));
 
