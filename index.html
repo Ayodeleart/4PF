@@ -987,6 +987,7 @@ select.inp{cursor:pointer;appearance:none;background-image:url("data:image/svg+x
         <button class="chip" data-val="bed at night" onclick="pickChip(this,'ariana-selfie-chips');ariana.selfieType=this.dataset.val">Bed (night)</button>
         <button class="chip" data-val="in the car" onclick="pickChip(this,'ariana-selfie-chips');ariana.selfieType=this.dataset.val">Car</button>
         <button class="chip" data-val="doing chores" onclick="pickChip(this,'ariana-selfie-chips');ariana.selfieType=this.dataset.val">Chores</button>
+        <button class="chip" data-val="just woke up" onclick="pickChip(this,'ariana-selfie-chips');ariana.selfieType=this.dataset.val">Just woke up</button>
       </div>
     </div>
 
@@ -3780,21 +3781,25 @@ function arianaBuildPrompt(variationHint) {
   const wardrobeNote = ariana.selectedWardrobe.length ? '' : 'Wardrobe: use tasteful, everyday clothing appropriate to the scene.';
   const hasPose = !!ariana.selectedPoseUrl;
   const hasHairRef = !!ariana.selectedHairstyleUrl;
+  const justWokeUp = ariana.selfieType === 'just woke up';
   const makeupNote = ariana.makeup === 'glam'
-    ? `Glam makeup.${hasHairRef ? '' : ' Hair styled down.'}`
-    : `Bare face, no makeup.${hasHairRef ? '' : ' Hair pulled back / packed up.'}`;
-  const hairNote = hasHairRef ? 'Use the exact hairstyle from the hairstyle reference image.' : '';
+    ? `Glam makeup.${hasHairRef || justWokeUp ? '' : ' Hair styled down.'}`
+    : `Bare face, no makeup.${hasHairRef || justWokeUp ? '' : ' Hair pulled back / packed up.'}`;
+  const morningHairNote = justWokeUp
+    ? 'Hair (important, overrides any other hair styling): she just woke up — hair must look genuinely slept-in, not salon-fresh. Show it either in a bonnet or sleep cap, OR loose, rough, slightly tangled/flattened-on-one-side unbrushed hair. Never show smooth, freshly-styled, or salon-perfect hair in this shot.'
+    : '';
+  const hairNote = hasHairRef && !justWokeUp ? 'Use the exact hairstyle from the hairstyle reference image.' : '';
   const imageMap = arianaImageMap();
   const framingLine = hasPose
     ? 'Framing AND pose (strict): reproduce the pose reference image\'s exact body position (sitting/lying/standing/leaning — whatever it shows), exact framing, crop, and camera distance. If she is sitting in the reference, she is sitting in the output — never change a sitting/lying pose to standing or vice versa. Full body stays full body, do not zoom in or crop tighter than the pose reference.'
     : `Framing for this shot only: ${variationHint} — vary ONLY the camera framing/crop/angle; the face, body, outfit, and background must stay exactly as specified above.`;
-  const realismLine = 'Realism (important): this must look like a genuine, unedited iPhone selfie, not an AI image — natural asymmetry, real skin texture with visible pores and minor imperfections, authentic uneven phone-camera lighting, no airbrushing, no glossy/plastic skin, no overly perfect symmetry, no digital-art or 3D-render look.';
+  const realismLine = 'Realism (important, non-negotiable): this must be indistinguishable from a genuine, unedited iPhone selfie — real skin texture with visible pores, fine hairs, faint under-eye or natural discoloration, natural oil/shine in a T-zone or matte-dry patches, small blemishes or unevenness, natural asymmetry in the face and body, authentic uneven phone-camera lighting and slight grain, true-to-life color (no color-graded/filtered look). NEVER: airbrushed, glossy, waxy, or plastic-looking skin; over-smoothed or over-sharpened detail; perfect symmetry; a rendered, painterly, or digital-art look.';
   return [
     imageMap.length ? `IMAGE MAP:\n${imageMap.join('\n')}` : '',
     `IDENTITY LOCK (the single most important rule, never changes): generate the SAME woman as the face reference image(s) above. ${arianaConsistencyDirective(ariana.consistency)}`,
     `Her body — match this exactly, do not slim, shrink, or reshape her: ${ARIANA_BODY_SPEC}`,
     `Persona: ${ARIANA_PERSONA_LINE}`,
-    `Scene: a ${ariana.selfieType} selfie-style photo. ${makeupNote} ${hairNote} ${wardrobeNote} ${arianaBackgroundClause()}`,
+    `Scene: a ${ariana.selfieType} selfie-style photo. ${makeupNote} ${morningHairNote} ${hairNote} ${wardrobeNote} ${arianaBackgroundClause()}`,
     ariana.mood ? `Mood: ${ariana.mood}.` : '',
     ariana.extra || '',
     framingLine,
