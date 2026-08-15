@@ -398,6 +398,10 @@ select.inp{cursor:pointer;appearance:none;background-image:url("data:image/svg+x
         <div class="fc-icon"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="var(--txt2)" stroke-width="1.8" stroke-linecap="round"><circle cx="12" cy="7" r="4"/><path d="M4.5 20c0-4.4 3.4-7.5 7.5-7.5s7.5 3.1 7.5 7.5"/><circle cx="12" cy="7" r="1.4" fill="var(--txt2)"/></svg></div>
         <div class="fc-name">Ariana</div>
       </div>
+      <div class="fc" onclick="go('lipsync')">
+        <div class="fc-icon"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="var(--txt2)" stroke-width="1.8" stroke-linecap="round"><rect x="3" y="6" width="12" height="12" rx="2"/><path d="M15 9.5l5-3v11l-5-3"/></svg></div>
+        <div class="fc-name">Lip Sync</div>
+      </div>
     </div>
     <!-- TEMPLATES -->
     <div id="templates-section" style="display:none">
@@ -1103,6 +1107,53 @@ select.inp{cursor:pointer;appearance:none;background-image:url("data:image/svg+x
   </div>
 </div>
 
+<!-- ═══════════════ LIP SYNC ═══════════════ -->
+<div id="screen-lipsync" class="screen">
+  <div class="hdr">
+    <button class="ib" onclick="goBack()"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M19 12H5M12 19l-7-7 7-7"/></svg></button>
+    <span class="hdr-title">Lip Sync</span>
+  </div>
+  <div class="pscroll">
+
+    <!-- VIDEO -->
+    <div class="sec">
+      <label class="lbl">Video <span style="color:var(--txt3);font-weight:400">— the talking video to re-sync</span></label>
+      <input type="file" id="lipsync-video-file" accept="video/*" hidden onchange="lipsyncUploadVideo(this)">
+      <div id="lipsync-video-upload-box" class="upload-box" onclick="document.getElementById('lipsync-video-file').click()">
+        <div class="uph" id="lipsync-video-ph"><span style="font-size:12px">Tap to upload a video</span></div>
+      </div>
+      <video id="lipsync-video-preview" controls playsinline style="width:100%;border-radius:8px;display:none;margin-top:8px"></video>
+      <div id="lipsync-video-uploading" style="font-size:12px;color:var(--txt3);display:none;margin-top:6px"><div class="spin" style="display:inline-block;vertical-align:middle;margin-right:6px"></div>Uploading video...</div>
+      <button class="chip" id="lipsync-video-replace" style="display:none;margin-top:8px" onclick="document.getElementById('lipsync-video-file').click()">Replace video</button>
+    </div>
+
+    <!-- AUDIO -->
+    <div class="sec">
+      <label class="lbl">Audio <span style="color:var(--txt3);font-weight:400">— upload new, or pick a saved one</span></label>
+      <div style="display:flex;gap:8px;margin-bottom:8px" id="lipsync-audio-mode-chips">
+        <button class="chip on" data-val="upload" onclick="lipsyncSetAudioMode(this,'upload')">Upload new</button>
+        <button class="chip" data-val="library" onclick="lipsyncSetAudioMode(this,'library')">From library</button>
+      </div>
+      <div id="lipsync-audio-upload-wrap">
+        <input type="file" id="lipsync-audio-file" accept="audio/*" hidden onchange="lipsyncUploadAudio(this)">
+        <div class="upload-box" onclick="document.getElementById('lipsync-audio-file').click()">
+          <div class="uph" id="lipsync-audio-upload-ph"><span style="font-size:12px">Tap to upload audio (mp3, wav, m4a...)</span></div>
+        </div>
+        <div id="lipsync-audio-uploading" style="font-size:12px;color:var(--txt3);display:none;margin-top:6px"><div class="spin" style="display:inline-block;vertical-align:middle;margin-right:6px"></div>Uploading audio...</div>
+      </div>
+      <div id="lipsync-audio-library-wrap" style="display:none">
+        <div id="lipsync-audio-library-list" style="display:flex;flex-direction:column;gap:8px"></div>
+      </div>
+      <div id="lipsync-audio-selected" style="font-size:12px;color:var(--txt2);margin-top:8px;display:none"></div>
+    </div>
+
+    <button class="btn" id="lipsync-btn" onclick="doLipsyncGenerate()" style="margin-top:10px">Generate</button>
+    <div id="lipsync-live-status" style="font-size:12px;color:var(--txt3);margin-top:6px;display:none"></div>
+    <div id="lipsync-err" class="err"></div>
+    <div id="lipsync-results" style="display:flex;flex-direction:column;gap:12px;margin-top:14px"></div>
+  </div>
+</div>
+
 <!-- ═══════════════ CHANGE PASSWORD OVERLAY ═══════════════ -->
 <div id="chpw-overlay" style="display:none;position:fixed;inset:0;z-index:200;background:var(--bg)">
   <div class="eo-hdr">
@@ -1336,6 +1387,7 @@ select.inp{cursor:pointer;appearance:none;background-image:url("data:image/svg+x
  create table ariana_settings (user_id text primary key, locked_background text, updated_at timestamptz default now());
  create table ariana_pending (id text primary key, user_id text not null, model text not null, created_at timestamptz default now());
  create table ariana_hairstyles (id text primary key, user_id text not null, url text not null, created_at timestamptz default now());
+ create table lipsync_audio (id text primary key, user_id text not null, url text not null, label text, created_at timestamptz default now());
 
  alter table ariana_faces enable row level security;
  alter table ariana_wardrobe enable row level security;
@@ -1344,6 +1396,7 @@ select.inp{cursor:pointer;appearance:none;background-image:url("data:image/svg+x
  alter table ariana_settings enable row level security;
  alter table ariana_pending enable row level security;
  alter table ariana_hairstyles enable row level security;
+ alter table lipsync_audio enable row level security;
  create policy "own rows" on ariana_faces for all using (user_id = auth.uid()::text) with check (user_id = auth.uid()::text);
  create policy "own rows" on ariana_wardrobe for all using (user_id = auth.uid()::text) with check (user_id = auth.uid()::text);
  create policy "own rows" on ariana_poses for all using (user_id = auth.uid()::text) with check (user_id = auth.uid()::text);
@@ -1351,6 +1404,7 @@ select.inp{cursor:pointer;appearance:none;background-image:url("data:image/svg+x
  create policy "own rows" on ariana_settings for all using (user_id = auth.uid()::text) with check (user_id = auth.uid()::text);
  create policy "own rows" on ariana_pending for all using (user_id = auth.uid()::text) with check (user_id = auth.uid()::text);
  create policy "own rows" on ariana_hairstyles for all using (user_id = auth.uid()::text) with check (user_id = auth.uid()::text);
+ create policy "own rows" on lipsync_audio for all using (user_id = auth.uid()::text) with check (user_id = auth.uid()::text);
 
  STORAGE POLICIES (ariana-faces bucket — private):
  create policy "own files read" on storage.objects for select using (bucket_id = 'ariana-faces' and (storage.foldername(name))[1] = auth.uid()::text);
@@ -1819,7 +1873,7 @@ function startTemplate(i) {
     lastY = y;
   }
 })();
-const INNER = ['signin','chat','tts','pimg','pvid','i2v','motion','talkphoto','refimg','keys','heromanage','library','ariana'];
+const INNER = ['signin','chat','tts','pimg','pvid','i2v','motion','talkphoto','refimg','keys','heromanage','library','ariana','lipsync'];
 function go(screen, params = {}) {
   document.querySelectorAll('.screen').forEach(s => s.classList.remove('on'));
   const el = document.getElementById('screen-' + screen);
@@ -1844,6 +1898,7 @@ function go(screen, params = {}) {
 
   if (screen === 'library') loadLibrary();
   if (screen === 'ariana') loadArianaAssets();
+  if (screen === 'lipsync') loadLipsyncAudio();
   if (screen === 'tts') {
     renderCustomVoices();
     const savedProvider = localStorage.getItem('ss_tts_provider');
@@ -3978,6 +4033,155 @@ async function arianaUpscale(imgId, btn) {
   }
 }
 function openUrl(u) { if (u !== '#') window.open(u,'_blank'); }
+
+// ══════════════════════════ LIP SYNC ══════════════════════════
+// Model: fal-ai/sync-lipsync/v3 — input {video_url, audio_url}, output {video:{url,...}}. Verified schema.
+const lipsync = {
+  videoUrl: null,
+  audioMode: 'upload',
+  audioLibrary: [],
+  selectedAudioId: null, selectedAudioUrl: null
+};
+
+async function loadLipsyncAudio() {
+  if (!currentUser) return;
+  try {
+    const { data } = await sb.from('lipsync_audio').select('*').eq('user_id', currentUser.id).order('created_at', { ascending: false });
+    lipsync.audioLibrary = data || [];
+    lipsyncRenderAudioLibrary();
+  } catch (e) { console.warn('loadLipsyncAudio:', e); }
+}
+
+// ── VIDEO ──
+async function lipsyncUploadVideo(inp) {
+  const file = inp.files[0]; if (!file) return;
+  const box = document.getElementById('lipsync-video-upload-box');
+  const uploading = document.getElementById('lipsync-video-uploading');
+  box.style.display = 'none'; uploading.style.display = 'block';
+  try {
+    const path = `lipsync/videos/${currentUser.id}/${Date.now()}_${file.name.replace(/[^a-zA-Z0-9._-]/g, '')}`;
+    const { error: upErr } = await sb.storage.from('octopusfur-media').upload(path, file, { contentType: file.type || 'video/mp4', upsert: true });
+    if (upErr) throw upErr;
+    const { data } = sb.storage.from('octopusfur-media').getPublicUrl(path);
+    lipsync.videoUrl = data.publicUrl;
+    const preview = document.getElementById('lipsync-video-preview');
+    preview.src = data.publicUrl;
+    preview.style.display = 'block';
+    document.getElementById('lipsync-video-replace').style.display = 'inline-block';
+  } catch (err) {
+    box.style.display = '';
+    alert('Video upload failed: ' + (err.message || err));
+  } finally {
+    uploading.style.display = 'none';
+    inp.value = '';
+  }
+}
+
+// ── AUDIO ──
+function lipsyncSetAudioMode(el, mode) {
+  document.querySelectorAll('#lipsync-audio-mode-chips .chip').forEach(c => c.classList.remove('on'));
+  el.classList.add('on');
+  lipsync.audioMode = mode;
+  document.getElementById('lipsync-audio-upload-wrap').style.display = mode === 'upload' ? 'block' : 'none';
+  document.getElementById('lipsync-audio-library-wrap').style.display = mode === 'library' ? 'block' : 'none';
+}
+async function lipsyncUploadAudio(inp) {
+  const file = inp.files[0]; if (!file) return;
+  const ph = document.getElementById('lipsync-audio-upload-ph');
+  const uploading = document.getElementById('lipsync-audio-uploading');
+  uploading.style.display = 'block';
+  try {
+    const path = `lipsync/audio/${currentUser.id}/${Date.now()}_${file.name.replace(/[^a-zA-Z0-9._-]/g, '')}`;
+    const { error: upErr } = await sb.storage.from('octopusfur-media').upload(path, file, { contentType: file.type || 'audio/mpeg', upsert: true });
+    if (upErr) throw upErr;
+    const { data } = sb.storage.from('octopusfur-media').getPublicUrl(path);
+    const id = Date.now().toString();
+    const label = file.name.replace(/\.[^.]+$/, '').slice(0, 60) || 'Audio clip';
+    await sb.from('lipsync_audio').insert({ id, user_id: currentUser.id, url: data.publicUrl, label });
+    lipsync.audioLibrary.unshift({ id, url: data.publicUrl, label });
+    lipsync.selectedAudioId = id; lipsync.selectedAudioUrl = data.publicUrl;
+    lipsyncShowSelectedAudio(label);
+    lipsyncRenderAudioLibrary();
+  } catch (err) {
+    alert('Audio upload failed: ' + (err.message || err));
+  } finally {
+    uploading.style.display = 'none';
+    inp.value = '';
+  }
+}
+function lipsyncRenderAudioLibrary() {
+  const wrap = document.getElementById('lipsync-audio-library-list');
+  if (!lipsync.audioLibrary.length) { wrap.innerHTML = '<div style="font-size:12px;color:var(--txt3)">No saved audio yet — upload one first.</div>'; return; }
+  wrap.innerHTML = lipsync.audioLibrary.map(a => {
+    const sel = lipsync.selectedAudioId === a.id;
+    return `<div style="display:flex;align-items:center;gap:8px;padding:8px;border-radius:8px;border:2px solid ${sel ? 'var(--acc)' : 'var(--bdr)'}">
+      <div style="flex:1;min-width:0" onclick="lipsyncSelectAudio('${a.id}')">
+        <div style="font-size:13px;font-weight:600;color:var(--txt);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${esc(a.label || 'Audio clip')}</div>
+        <audio controls src="${esc(a.url)}" style="width:100%;height:32px;margin-top:4px"></audio>
+      </div>
+      <button onclick="lipsyncDeleteAudio('${a.id}')" style="width:22px;height:22px;border-radius:50%;background:var(--s3);border:1px solid var(--bdr2);font-size:13px;line-height:1;color:var(--txt2);cursor:pointer;flex-shrink:0">×</button>
+    </div>`;
+  }).join('');
+}
+function lipsyncSelectAudio(id) {
+  const a = lipsync.audioLibrary.find(x => x.id === id); if (!a) return;
+  lipsync.selectedAudioId = id; lipsync.selectedAudioUrl = a.url;
+  lipsyncShowSelectedAudio(a.label);
+  lipsyncRenderAudioLibrary();
+}
+async function lipsyncDeleteAudio(id) {
+  try { await sb.from('lipsync_audio').delete().eq('id', id); } catch (_) {}
+  lipsync.audioLibrary = lipsync.audioLibrary.filter(x => x.id !== id);
+  if (lipsync.selectedAudioId === id) { lipsync.selectedAudioId = null; lipsync.selectedAudioUrl = null; document.getElementById('lipsync-audio-selected').style.display = 'none'; }
+  lipsyncRenderAudioLibrary();
+}
+function lipsyncShowSelectedAudio(label) {
+  const el = document.getElementById('lipsync-audio-selected');
+  el.textContent = `Selected: ${label}`;
+  el.style.display = 'block';
+}
+
+// ── GENERATE ──
+async function doLipsyncGenerate() {
+  const btn = document.getElementById('lipsync-btn');
+  const err = document.getElementById('lipsync-err');
+  const liveStatus = document.getElementById('lipsync-live-status');
+  if (btn.disabled) return; // guard against double-tap firing a duplicate request
+  btn.disabled = true;
+  err.style.display = 'none'; err.textContent = '';
+
+  const videoUrl = lipsync.videoUrl;
+  const audioUrl = lipsync.selectedAudioUrl;
+  if (!videoUrl) { err.textContent = 'Upload a video first.'; err.style.display = 'block'; btn.disabled = false; return; }
+  if (!audioUrl) { err.textContent = lipsync.audioMode === 'library' ? 'Select an audio clip from the library first.' : 'Upload an audio file first.'; err.style.display = 'block'; btn.disabled = false; return; }
+
+  liveStatus.style.display = 'block';
+  try {
+    const out = await falQueue('fal-ai/sync-lipsync/v3', { video_url: videoUrl, audio_url: audioUrl }, 'lipsync-btn', 'Syncing lips', txt => { liveStatus.innerHTML = txt; });
+    const url = out?.video?.url;
+    if (!url) throw new Error('No video came back from the model — nothing to show.');
+    lipsyncAppendResult(url);
+  } catch (e) {
+    err.textContent = e.message || String(e);
+    err.style.display = 'block';
+  } finally {
+    btn.disabled = false; btn.innerHTML = 'Generate';
+    liveStatus.style.display = 'none'; liveStatus.innerHTML = '';
+  }
+}
+function lipsyncAppendResult(url) {
+  const wrap = document.getElementById('lipsync-results');
+  const id = 'lres-' + Math.random().toString(36).slice(2, 9);
+  const card = document.createElement('div');
+  card.className = 'res-wrap';
+  card.innerHTML = `<video id="${id}" src="${esc(url)}" controls playsinline style="width:100%;border-radius:8px"></video>
+    <div class="res-actions">
+      <button class="ra" onclick="saveLibClick(this,'video',document.getElementById('${id}').src,'lip sync')">Save to Library</button>
+      <button class="ra" onclick="dlFileSafe(document.getElementById('${id}').src,'lipsync.mp4')">Save to Device</button>
+    </div>`;
+  wrap.appendChild(card);
+}
+
 </script>
 </body>
 </html>
