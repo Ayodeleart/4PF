@@ -1118,7 +1118,7 @@ select.inp{cursor:pointer;appearance:none;background-image:url("data:image/svg+x
     <!-- VIDEO -->
     <div class="sec">
       <label class="lbl">Video <span style="color:var(--txt3);font-weight:400">— the talking video to re-sync</span></label>
-      <input type="file" id="lipsync-video-file" accept="video/*" hidden onchange="lipsyncUploadVideo(this)">
+      <input type="file" id="lipsync-video-file" accept="video/*,.mp4,.mov,.m4v,.webm" hidden onchange="lipsyncUploadVideo(this)">
       <div id="lipsync-video-upload-box" class="upload-box" onclick="document.getElementById('lipsync-video-file').click()">
         <div class="uph" id="lipsync-video-ph"><span style="font-size:12px">Tap to upload a video</span></div>
       </div>
@@ -1135,7 +1135,7 @@ select.inp{cursor:pointer;appearance:none;background-image:url("data:image/svg+x
         <button class="chip" data-val="library" onclick="lipsyncSetAudioMode(this,'library')">From library</button>
       </div>
       <div id="lipsync-audio-upload-wrap">
-        <input type="file" id="lipsync-audio-file" accept="audio/*" hidden onchange="lipsyncUploadAudio(this)">
+        <input type="file" id="lipsync-audio-file" accept="audio/*,.mp3,.wav,.m4a,.aac,.ogg,.caf,.flac" hidden onchange="lipsyncUploadAudio(this)">
         <div class="upload-box" onclick="document.getElementById('lipsync-audio-file').click()">
           <div class="uph" id="lipsync-audio-upload-ph"><span style="font-size:12px">Tap to upload audio (mp3, wav, m4a...)</span></div>
         </div>
